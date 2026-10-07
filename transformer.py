@@ -22,7 +22,7 @@ class MultiheadAttention(nnx.Module):
     def __init__(self, n_heads: int, model_dim: int):
         pass
 
-    def forward(self, query, key, value, mask):
+    def __call__(self, query, key, value, mask):
         """
         """
         pass
