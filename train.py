@@ -44,4 +44,4 @@ n_train = len(data["train"])
 for x in data["train"]:
     src, src_mask = prepare_de(x)
     tgt, tgt_mask = prepare_en(x)
-    model.forward(src, tgt, src_mask, tgt_mask)
+    model(src, tgt, src_mask, tgt_mask)

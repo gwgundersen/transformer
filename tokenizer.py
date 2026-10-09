@@ -1,5 +1,7 @@
 from collections import Counter
+from typing import Callable
 
+import jax.numpy as jnp
 import numpy as np
 from spacy.lang.de import German
 from spacy.lang.en import English
@@ -17,9 +19,9 @@ LANG_TO_TOKENIZER = {
 }
 
 
-def build_vocab(lang: str):
+def build_vocab(lang: str) -> Callable:
 
-    def _build_vocab(data):
+    def _build_vocab(data: list) -> dict:
         counts = Counter()
         tokenizer = LANG_TO_TOKENIZER[lang]
         for example in data:
@@ -34,9 +36,9 @@ def build_vocab(lang: str):
     return _build_vocab
 
 
-def build_prepare(vocab, lang, max_length=10):
+def build_prepare(vocab: dict, lang: str, max_length=10) -> Callable:
 
-    def _prepare(pair):
+    def _prepare(pair: dict) -> jnp.array:
         tokenizer = LANG_TO_TOKENIZER[lang]
         doc = tokenizer(pair["translation"][lang])
         ids = [vocab[t.text] for t in doc]
@@ -46,8 +48,8 @@ def build_prepare(vocab, lang, max_length=10):
         else:
             padding = [PADDING_ID] * (max_length - doc_length)
             doc_padded = ids + padding
-        doc_padded = np.array(doc_padded)
+        doc_padded = jnp.array(doc_padded)
         mask = doc_padded != PADDING_ID
-        return doc_padded, mask
+        return doc_padded[None, :], mask[None, :]
 
     return _prepare
