@@ -11,16 +11,14 @@ TODO:
 """
 
 import numpy as np
+
+from flax import nnx
 import jax.numpy as jnp
+import optax
+
 from dataset import load_iwslt_en_de
 from transformer import Transformer
 from tokenizer import build_vocab, build_prepare
-
-
-BOS_WORD = "<s>"
-EOS_WORD = "</s>"
-BLANK_WORD = "<blank>"
-PADDING_ID = 0
 
 
 # --------------------------------------------------------------------------------------------------
@@ -38,10 +36,35 @@ model = Transformer(
     tgt_vocab=VOCAB_EN
 )
 
+optimizer = nnx.Optimizer(
+    model,
+    optax.adam(1e-4),
+    wrt=nnx.Param,
+)
+
 model.train()
 
 n_train = len(data["train"])
 for x in data["train"]:
+
     src, src_mask = prepare_de(x)
     tgt, tgt_mask = prepare_en(x)
-    model(src, tgt, src_mask, tgt_mask)
+
+    def loss_fn(model):
+        logits = model(
+            src,
+            tgt,
+            src_mask,
+            tgt_mask,
+        )
+        # FIXME: Explain teacher forcing
+        loss = optax.softmax_cross_entropy_with_integer_labels(
+            logits[:, :-1],
+            tgt[:, 1:],
+        )
+        return loss.mean()
+
+    loss, grads = nnx.value_and_grad(loss_fn)(model)
+    optimizer.update(model, grads)
+
+    print(f"{loss.item()}")

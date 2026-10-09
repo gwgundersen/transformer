@@ -11,6 +11,7 @@ BOS_WORD = "<s>"
 EOS_WORD = "</s>"
 BLANK_WORD = "<blank>"
 UNK_WORD = "<unk>"
+UNK_ID = 1
 PADDING_ID = 0
 
 LANG_TO_TOKENIZER = {
@@ -20,28 +21,37 @@ LANG_TO_TOKENIZER = {
 
 
 def build_vocab(lang: str) -> Callable:
+    """
+    """
 
     def _build_vocab(data: list) -> dict:
+        """
+        """
         counts = Counter()
         tokenizer = LANG_TO_TOKENIZER[lang]
         for example in data:
             sentence = example["translation"][lang]
             counts.update([t.text for t in tokenizer(sentence)])
         filtered = [token for token, count in counts.items() if count >= 2]
-        idx_to_str = [UNK_WORD, BLANK_WORD] + filtered
+        id_to_str = [UNK_WORD, BLANK_WORD] + filtered
         # +1 to leave id=0 for PADDING
-        str_to_idx = {token: i+1 for i, token in enumerate(idx_to_str)}
-        return str_to_idx
+        str_to_id = {token: i+1 for i, token in enumerate(id_to_str)}
+        assert str_to_id[UNK_WORD] == UNK_ID
+        return str_to_id
 
     return _build_vocab
 
 
-def build_prepare(vocab: dict, lang: str, max_length=10) -> Callable:
+def build_prepare(vocab: dict[str, int], lang: str, max_length=10) -> Callable:
+    """
+    """
 
     def _prepare(pair: dict) -> jnp.array:
+        """
+        """
         tokenizer = LANG_TO_TOKENIZER[lang]
         doc = tokenizer(pair["translation"][lang])
-        ids = [vocab[t.text] for t in doc]
+        ids = [vocab.get(t.text, UNK_ID) for t in doc]
         doc_length = len(doc)
         if doc_length > max_length:
             doc_padded = ids[:max_length]

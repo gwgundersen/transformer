@@ -4,41 +4,103 @@ from flax.nnx import softmax
 import jax
 import jax.numpy as jnp
 import numpy as np
-import optax
 
+
+# --------------------------------------------------------------------------------------------------
 
 MAX_LEN = 5000
 
 
-# FIXME.
-def attention(Q, K, V):
+def attention(query: jnp.array, key: jnp.array, value: jnp.array, d_k: int) -> jnp.array:
     """
     attention(q, k, v) = softmax[(Q @ K.T) / sqrt(d_k)] @ V
     """
-    d_k = K.size(-1)
-    return softmax((Q @ K.T) / np.sqrt(d_k)) @ V
+    # query and key have shapes (batch, head, seq, model)
+    # we want do the matrix multiplicataion: (batch, head, seq, model) @ (batch, head, model, seq)
+    # the resulting vector has dimension (batch, head, seq, seq)
+    # so each head has its own (seq, seq) attention layer, and we run this over batches
+    qk = jnp.matmul(query, jnp.transpose(key, (0, 1, 3, 2)))
+
+    # FIXME: Explain
+    qk_scaled = qk / np.sqrt(d_k)
+
+    # qk_scaled has shape (batch, head, seq, seq)
+    # value has shape (batch, head, seq, d_k)
+    # output has shape (batch, head, seq, d_k)
+    return jnp.matmul(nnx.softmax(qk_scaled), value)
 
 
-# FIXME.
 class MultiheadAttention(nnx.Module):
 
-    def __init__(self, n_heads: int, model_dim: int):
-        pass
+    def __init__(self, n_heads: int, model_dim: int, rngs):
+        """
+        """
+        # FIXME: This surprises me. I thought multi-head attention meant attention was repeated over
+        # same input window
+        self.d_k = model_dim // n_heads
+        self.n_heads = n_heads
+        self.model_dim = model_dim
+        self.linear_q = nnx.Linear(model_dim, model_dim, rngs=rngs)
+        self.linear_k = nnx.Linear(model_dim, model_dim, rngs=rngs)
+        self.linear_v = nnx.Linear(model_dim, model_dim, rngs=rngs)
+        self.linear_out = nnx.Linear(model_dim, model_dim, rngs=rngs)
+
+        heads = {}
+        for i in range(n_heads):
+            pass
 
     def __call__(self, query, key, value, mask):
         """
         """
-        return query
+        batch_size, seq_len, model_dim = query.shape
+
+        query = self.linear_q(query)
+        key = self.linear_k(key)
+        value = self.linear_v(value)
+
+        # Note: d_k * n_heads = model_dim, so:
+        # Take 512-dimensional vector (model_dim = 512)
+        # Split it into 8 chunks (n_heads = 8)
+        query = query.reshape(batch_size, seq_len, self.n_heads, self.d_k)
+        key = key.reshape(batch_size, seq_len, self.n_heads, self.d_k)
+        value = value.reshape(batch_size, seq_len, self.n_heads, self.d_k)
+
+        # FIXME: Explain
+        query = jnp.transpose(query, (0, 2, 1, 3))
+        key = jnp.transpose(key, (0, 2, 1, 3))
+        value = jnp.transpose(value, (0, 2, 1, 3))
+
+        # Apply attention across the heads in batch, rather than:
+        #
+        #     attn = []
+        #     for _ in range(self.heads):
+        #         attn.append(attention(query, key, value, mask)
+        #.    attn = concat(attn)
+        #
+        # One could argue that this operation here is one of a few reasons transformers are so
+        # successful. The operations are embarrassingly parallel.
+        #
+        x = attention(query, key, value, self.d_k)
+
+        # This effectively concatenates the head outputs
+        x = x.reshape(batch_size, seq_len, model_dim)
+
+        return self.linear_out(x)
 
 
 class PositionwiseFeedForward(nnx.Module):
 
+
     def __init__(self, model_dim, ff_dim, dropout_rate, rngs):
+        """
+        """
         self.w1 = nnx.Linear(model_dim, ff_dim, rngs=rngs)
         self.w2 = nnx.Linear(ff_dim, model_dim, rngs=rngs)
         self.dropout = nnx.Dropout(dropout_rate, rngs=rngs)
 
     def __call__(self, x):
+        """
+        """
         x = nnx.relu(self.w1(x))
         x = self.dropout(x)
         return self.w2(x)
@@ -107,7 +169,7 @@ class EncoderLayer(nnx.Module):
         self.norm2 = nnx.LayerNorm(model_dim, rngs=rngs)
         self.dropout1 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
-        self.self_attention = MultiheadAttention(n_attn_heads, model_dim)
+        self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
 
     def __call__(self, x, mask):
@@ -139,8 +201,8 @@ class DecoderLayer(nnx.Module):
         self.dropout1 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout3 = nnx.Dropout(dropout_rate, rngs=rngs)
-        self.self_attention = MultiheadAttention(n_attn_heads, model_dim)
-        self.src_attention = MultiheadAttention(n_attn_heads, model_dim)
+        self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
+        self.src_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
 
     def __call__(self, x, memory, src_mask, tgt_mask):
@@ -151,7 +213,7 @@ class DecoderLayer(nnx.Module):
         x = x + self.dropout1(x)
 
         x = self.norm2(x)
-        x = self.source_attention(x, memory, memory, src_mask)
+        x = self.src_attention(x, memory, memory, src_mask)
         x = x + self.dropout2(x)
 
         x = self.norm3(x)
@@ -182,17 +244,21 @@ class Transformer(nnx.Module):
         self.src_embed = EmbeddingLayer(model_dim, src_vocab, dropout_rate, rngs)
         self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab, dropout_rate, rngs)
         self.encoder_layers = nnx.List([
-            EncoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs) for _ in range(num_modules)
+            EncoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs)
+            for _ in range(num_modules)
         ])
         self.decoder_layers = nnx.List([
-            DecoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs) for _ in range(num_modules)
+            DecoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs)
+            for _ in range(num_modules)
         ])
+        self.output_projection = nnx.Linear(model_dim, len(tgt_vocab), rngs=rngs)
 
     def __call__(self, src, tgt, src_mask, tgt_mask):
         """
         """
-        z = self.encode(src, src_mask)
-        return self.decode(z, src_mask, tgt, tgt_mask)
+        x = self.encode(src, src_mask)
+        x = self.decode(x, src_mask, tgt, tgt_mask)
+        return self.output_projection(x)
 
     def encode(self, src, src_mask):
         """
