@@ -143,7 +143,7 @@ class DecoderLayer(nnx.Module):
         self.src_attention = MultiheadAttention(n_attn_heads, model_dim)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
 
-    def __call__(sef, x, memory, src_mask, tgt_mask):
+    def __call__(self, x, memory, src_mask, tgt_mask):
         """
         """
         x = self.norm1(x)
