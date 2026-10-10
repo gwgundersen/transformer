@@ -5,6 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 from spacy.lang.de import German
 from spacy.lang.en import English
+from spacy.tokenizer import Tokenizer
 
 
 BOS_WORD = "<s>"
@@ -42,24 +43,45 @@ def build_vocab(lang: str) -> Callable:
     return _build_vocab
 
 
-def build_prepare(vocab: dict[str, int], lang: str, max_length=10) -> Callable:
+def _prepare(
+    sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int
+) -> dict[str, np.array]:
     """
     """
+    doc = tokenizer(sentence)
+    ids = [vocab.get(t.text, UNK_ID) for t in doc]
+    doc_length = len(doc)
+    if doc_length > max_length:
+        doc_padded = ids[:max_length]
+    else:
+        padding = [PADDING_ID] * (max_length - doc_length)
+        doc_padded = ids + padding
+    doc_padded = np.array(doc_padded)
+    mask = doc_padded != PADDING_ID
+    return {
+        "doc": doc_padded,
+        "mask": mask
+    }
 
-    def _prepare(pair: dict) -> jnp.array:
-        """
-        """
-        tokenizer = LANG_TO_TOKENIZER[lang]
-        doc = tokenizer(pair["translation"][lang])
-        ids = [vocab.get(t.text, UNK_ID) for t in doc]
-        doc_length = len(doc)
-        if doc_length > max_length:
-            doc_padded = ids[:max_length]
-        else:
-            padding = [PADDING_ID] * (max_length - doc_length)
-            doc_padded = ids + padding
-        doc_padded = jnp.array(doc_padded)
-        mask = doc_padded != PADDING_ID
-        return doc_padded[None, :], mask[None, :]
 
-    return _prepare
+def prepare(x: dict, vocab: dict, max_length: int) -> dict:
+    """
+    """
+    de = _prepare(
+        x["translation"]["de"],
+        vocab["de"],
+        LANG_TO_TOKENIZER["de"],
+        max_length,
+    )
+    en = _prepare(
+        x["translation"]["en"],
+        vocab["en"],
+        LANG_TO_TOKENIZER["en"],
+        max_length,
+    )
+    return {
+        "src": de["doc"],
+        "src_mask": de["mask"],
+        "tgt": en["doc"],
+        "tgt_mask": en["mask"],
+    }
