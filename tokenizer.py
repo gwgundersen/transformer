@@ -43,9 +43,8 @@ def build_vocab(lang: str) -> Callable:
     return _build_vocab
 
 
-def _prepare(
-    sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int
-) -> dict[str, np.array]:
+# FIXME: Better name
+def _prepare(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) -> np.array:
     """
     """
     doc = tokenizer(sentence)
@@ -56,32 +55,52 @@ def _prepare(
     else:
         padding = [PADDING_ID] * (max_length - doc_length)
         doc_padded = ids + padding
-    doc_padded = np.array(doc_padded)
-    mask = doc_padded != PADDING_ID
-    return {
-        "doc": doc_padded,
-        "mask": mask
-    }
+    return np.array(doc_padded)
 
 
 def prepare(x: dict, vocab: dict, max_length: int) -> dict:
     """
     """
-    de = _prepare(
+    src = _prepare(
         x["translation"]["de"],
         vocab["de"],
         LANG_TO_TOKENIZER["de"],
         max_length,
     )
-    en = _prepare(
+
+    # The source mask only needs to remove invalid tokens.
+    # FIXME: Explain None, None, which is reshaping to add n_head and broadcasting across (size, size)
+    # dims
+    src_mask = (src != PADDING_ID)[None, None, :]
+
+    tgt = _prepare(
         x["translation"]["en"],
         vocab["en"],
         LANG_TO_TOKENIZER["en"],
         max_length,
     )
+
+    # FIXME: Explain
+    tgt_input = tgt[:-1]
+    tgt_output = tgt[1:]
+
+    # FIXME:
+    tgt_mask = (tgt_input != PADDING_ID) & causal_mask(len(tgt_input))
+    # FIXME: Add new axis to allow broadcasting over n_heads
+    tgt_mask = tgt_mask[None, :, :]
+
     return {
-        "src": de["doc"],
-        "src_mask": de["mask"],
-        "tgt": en["doc"],
-        "tgt_mask": en["mask"],
+        "src": src,
+        "src_mask": src_mask,
+        "tgt_input": tgt_input,
+        "tgt_mask": tgt_mask,
+        "tgt_output": tgt_output,
     }
+
+
+def causal_mask(size: int) -> np.array:
+    """
+    """
+    # FIXME: Explain
+    score_shape = (size, size)
+    return np.tril(np.ones(score_shape), k=0).astype(bool)

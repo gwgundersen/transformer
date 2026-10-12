@@ -44,10 +44,12 @@ optimizer = nnx.Optimizer(
     wrt=nnx.Param,
 )
 
+# FIXME: What is the max length?
 train_data = data["train"].map(
     prepare,
     fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": 100},
     remove_columns=data["train"].column_names,
+    load_from_cache_file=True,
 )
 
 # FIXME: Explain.
@@ -58,25 +60,17 @@ def batches(data, batch_size: int) -> list:
     """
     """
     for start in range(0, len(data), batch_size):
-        batch = data[start:start + batch_size]
-        yield batch["src"], batch["src_mask"], batch["tgt"], batch["tgt_mask"]
+        b = data[start:start + batch_size]
+        yield b["src"], b["src_mask"], b["tgt_input"], b["tgt_mask"], b["tgt_output"]
         
 
 model.train()
-for src, src_mask, tgt, tgt_mask in batches(train_data, batch_size=128):
+for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
 
     def loss_fn(model):
-        logits = model(
-            src,
-            tgt,
-            src_mask,
-            tgt_mask,
-        )
+        logits = model(src, tgt_input, src_mask, tgt_mask)
         # FIXME: Explain teacher forcing
-        loss = optax.softmax_cross_entropy_with_integer_labels(
-            logits[:, :-1],
-            tgt[:, 1:],
-        )
+        loss = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_output)
         return loss.mean()
 
     loss, grads = nnx.value_and_grad(loss_fn)(model)

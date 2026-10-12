@@ -12,28 +12,56 @@ from dataset import load_iwslt_en_de
 from tokenizer import build_vocab
 
 
+"""
+Encoder:
+  source self-attention
+
+Decoder:
+  target self-attention
+  target-source cross-attention
+"""
+
 # --------------------------------------------------------------------------------------------------
 
 MAX_LEN = 5000
 
 
-def attention(query: jnp.array, key: jnp.array, value: jnp.array, d_k: int) -> jnp.array:
+def attention(
+    query: jnp.array,
+    key: jnp.array,
+    value: jnp.array,
+    mask: jnp.array
+) -> jnp.array:
     """
     attention(q, k, v) = softmax[(Q @ K.T) / sqrt(d_k)] @ V
+
+    query shape = (query_len, d_k)
+    key shape   = (key_len,   d_k)
+    value shape = (value_len, d_v)
+   
+    so scores have shape (query_len, key_len)
+    but then attention mask will have shape (query_len, key_len)
+    because it's masking the scores
     """
+    d_k = query.shape[-1]
+
     # query and key have shapes (batch, head, seq, model)
     # we want do the matrix multiplicataion: (batch, head, seq, model) @ (batch, head, model, seq)
     # the resulting vector has dimension (batch, head, seq, seq)
-    # so each head has its own (seq, seq) attention layer, and we run this over batches
-    qk = jnp.matmul(query, jnp.transpose(key, (0, 1, 3, 2)))
+    # so each head has its own (seq, seq) attention layer, and we run this over tbatches
+    scores = (
+        query @ jnp.transpose(key, (0, 1, 3, 2))
+    ) / np.sqrt(d_k)
 
-    # FIXME: Explain
-    qk_scaled = qk / np.sqrt(d_k)
+    # FIXME: Explain why masking. Answer:
+    # 1) padding
+    # 2) causlity
+    scores = jnp.where(mask, scores, -jnp.inf)
 
     # qk_scaled has shape (batch, head, seq, seq)
     # value has shape (batch, head, seq, d_k)
     # output has shape (batch, head, seq, d_k)
-    return jnp.matmul(nnx.softmax(qk_scaled), value)
+    return jnp.matmul(nnx.softmax(scores), value)
 
 
 class MultiheadAttention(nnx.Module):
@@ -67,9 +95,9 @@ class MultiheadAttention(nnx.Module):
         # Note: d_k * n_heads = model_dim, so:
         # Take 512-dimensional vector (model_dim = 512)
         # Split it into 8 chunks (n_heads = 8)
-        query = query.reshape(batch_size, seq_len, self.n_heads, self.d_k)
-        key = key.reshape(batch_size, seq_len, self.n_heads, self.d_k)
-        value = value.reshape(batch_size, seq_len, self.n_heads, self.d_k)
+        query = query.reshape(batch_size, -1, self.n_heads, self.d_k)
+        key = key.reshape(batch_size, -1, self.n_heads, self.d_k)
+        value = value.reshape(batch_size, -1, self.n_heads, self.d_k)
 
         # FIXME: Explain
         query = jnp.transpose(query, (0, 2, 1, 3))
@@ -86,7 +114,7 @@ class MultiheadAttention(nnx.Module):
         # One could argue that this operation here is one of a few reasons transformers are so
         # successful. The operations are embarrassingly parallel.
         #
-        x = attention(query, key, value, self.d_k)
+        x = attention(query, key, value, mask)
 
         # This effectively concatenates the head outputs
         x = x.reshape(batch_size, seq_len, model_dim)
@@ -176,17 +204,17 @@ class EncoderLayer(nnx.Module):
         self.dropout1 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
-        self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
+        self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs=rngs)
 
     def __call__(self, x, mask):
         """
         """
-        # sublayer 1
+        # FIXME: explain sublayer 1
         x = self.norm1(x)
         x = self.self_attention(x, x, x, mask)
         x = x + self.dropout1(x)
 
-        # sublayer 2
+        # FIXME: explain sublayer 2
         x = self.norm2(x)
         x = self.feed_forward(x)
         x = x + self.dropout2(x)
@@ -208,18 +236,19 @@ class DecoderLayer(nnx.Module):
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout3 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
-        self.src_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
+        self.cross_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
 
-    def __call__(self, x, memory, src_mask, tgt_mask):
+    def __call__(self, x, encoder_output, src_mask, tgt_mask):
         """
+        x has shape (batch_dim, seq_len-1, model_dim)
         """
         x = self.norm1(x)
         x = self.self_attention(x, x, x, tgt_mask)
         x = x + self.dropout1(x)
 
         x = self.norm2(x)
-        x = self.src_attention(x, memory, memory, src_mask)
+        x = self.cross_attention(x, encoder_output, encoder_output, src_mask)
         x = x + self.dropout2(x)
 
         x = self.norm3(x)
