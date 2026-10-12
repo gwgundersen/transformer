@@ -8,8 +8,10 @@ from spacy.lang.en import English
 from spacy.tokenizer import Tokenizer
 
 
+# FIXME: Explain why we need BOS/EOS
 BOS_WORD = "<s>"
 EOS_WORD = "</s>"
+
 BLANK_WORD = "<blank>"
 UNK_WORD = "<unk>"
 UNK_ID = 1
