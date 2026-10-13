@@ -11,11 +11,13 @@ from spacy.tokenizer import Tokenizer
 # FIXME: Explain why we need BOS/EOS
 BOS_WORD = "<s>"
 EOS_WORD = "</s>"
-
 BLANK_WORD = "<blank>"
 UNK_WORD = "<unk>"
+
+PAD_ID = 0
 UNK_ID = 1
-PADDING_ID = 0
+BOS_ID = 2
+EOS_ID = 3
 
 LANG_TO_TOKENIZER = {
     "en": English().tokenizer,
@@ -35,11 +37,12 @@ def build_vocab(lang: str) -> Callable:
         for example in data:
             sentence = example["translation"][lang]
             counts.update([t.text for t in tokenizer(sentence)])
-        filtered = [token for token, count in counts.items() if count >= 2]
-        id_to_str = [UNK_WORD, BLANK_WORD] + filtered
-        # +1 to leave id=0 for PADDING
-        str_to_id = {token: i+1 for i, token in enumerate(id_to_str)}
-        assert str_to_id[UNK_WORD] == UNK_ID
+
+        special = [PAD_ID, UNK_ID, BOS_ID, EOS_ID]
+        filtered = [t for t, c in counts.items() if c >= 2 and t not in special]
+        id_to_str = special + filtered
+        str_to_id = {token: i for i, token in enumerate(id_to_str)}
+
         return str_to_id
 
     return _build_vocab
@@ -51,13 +54,14 @@ def _prepare(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) 
     """
     doc = tokenizer(sentence)
     ids = [vocab.get(t.text, UNK_ID) for t in doc]
-    doc_length = len(doc)
-    if doc_length > max_length:
-        doc_padded = ids[:max_length]
-    else:
-        padding = [PADDING_ID] * (max_length - doc_length)
-        doc_padded = ids + padding
-    return np.array(doc_padded)
+
+    # Reserve two spots for BOS/EOS
+    ids = ids[:max_length - 2]
+
+    # Add BOS/EOS and then padding
+    ids = [BOS_ID, *ids, EOS_ID]
+    padding = [PAD_ID] * (max_length - len(ids))
+    return np.array(ids + padding)
 
 
 def prepare(x: dict, vocab: dict, max_length: int) -> dict:
@@ -73,7 +77,7 @@ def prepare(x: dict, vocab: dict, max_length: int) -> dict:
     # The source mask only needs to remove invalid tokens.
     # FIXME: Explain None, None, which is reshaping to add n_head and broadcasting across (size, size)
     # dims
-    src_mask = (src != PADDING_ID)[None, None, :]
+    src_mask = (src != PAD_ID)[None, None, :]
 
     tgt = _prepare(
         x["translation"]["en"],
@@ -86,10 +90,7 @@ def prepare(x: dict, vocab: dict, max_length: int) -> dict:
     tgt_input = tgt[:-1]
     tgt_output = tgt[1:]
 
-    # FIXME:
-    tgt_mask = (tgt_input != PADDING_ID) & causal_mask(len(tgt_input))
-    # FIXME: Add new axis to allow broadcasting over n_heads
-    tgt_mask = tgt_mask[None, :, :]
+    tgt_mask = make_tgt_mask(tgt_input)
 
     return {
         "src": src,
@@ -100,7 +101,15 @@ def prepare(x: dict, vocab: dict, max_length: int) -> dict:
     }
 
 
-def causal_mask(size: int) -> np.array:
+def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarray:
+    """
+    """
+    mask = (tgt_input != PAD_ID) & causal_mask(len(tgt_input))
+    # FIXME: Add new axis to allow broadcasting over n_heads
+    return mask[None, :, :]
+
+
+def causal_mask(size: int) -> np.ndarray:
     """
     """
     # FIXME: Explain
