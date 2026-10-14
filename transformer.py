@@ -116,7 +116,9 @@ class MultiheadAttention(nnx.Module):
         #
         x = attention(query, key, value, mask)
 
-        # This effectively concatenates the head outputs
+        # This effectively concatenates the head outputs. First put back dimensions, then reshape
+        # (B, H, S, Dh) -> (B, S, H, Dh)
+        x = jnp.transpose(x, (0, 2, 1, 3))
         x = x.reshape(batch_size, seq_len, model_dim)
 
         return self.linear_out(x)
@@ -210,14 +212,16 @@ class EncoderLayer(nnx.Module):
         """
         """
         # FIXME: explain sublayer 1
+        residual = x
         x = self.norm1(x)
         x = self.self_attention(x, x, x, mask)
-        x = x + self.dropout1(x)
+        x = residual + self.dropout1(x)
 
         # FIXME: explain sublayer 2
+        residual = x
         x = self.norm2(x)
         x = self.feed_forward(x)
-        x = x + self.dropout2(x)
+        x = residual + self.dropout2(x)
 
         return x
 
@@ -243,17 +247,20 @@ class DecoderLayer(nnx.Module):
         """
         x has shape (batch_dim, seq_len-1, model_dim)
         """
+        residual = x
         x = self.norm1(x)
         x = self.self_attention(x, x, x, tgt_mask)
-        x = x + self.dropout1(x)
+        x = residual + self.dropout1(x)
 
+        residual = x
         x = self.norm2(x)
         x = self.cross_attention(x, encoder_output, encoder_output, src_mask)
-        x = x + self.dropout2(x)
+        x = residual + self.dropout2(x)
 
+        residual = x
         x = self.norm3(x)
         x = self.feed_forward(x)
-        x = x + self.dropout3(x)
+        x = residual + self.dropout3(x)
 
         return x
 
@@ -287,6 +294,8 @@ class Transformer(nnx.Module):
             for _ in range(num_modules)
         ])
         self.output_projection = nnx.Linear(model_dim, len(tgt_vocab), rngs=rngs)
+        self.encoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
+        self.decoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
 
     def __call__(self, src, tgt, src_mask, tgt_mask):
         """
@@ -301,7 +310,7 @@ class Transformer(nnx.Module):
         x = self.src_embed(src)
         for encoder_layer in self.encoder_layers:
             x = encoder_layer(x, src_mask)
-        return x
+        return self.encoder_norm(x)
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
         """
@@ -309,4 +318,4 @@ class Transformer(nnx.Module):
         x = self.tgt_embed(tgt)
         for decoder_layer in self.decoder_layers:
             x = decoder_layer(x, memory, src_mask, tgt_mask)
-        return x
+        return self.decoder_norm(x)

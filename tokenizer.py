@@ -42,7 +42,6 @@ def build_vocab(lang: str) -> Callable:
         filtered = [t for t, c in counts.items() if c >= 2 and t not in special]
         id_to_str = special + filtered
         str_to_id = {token: i for i, token in enumerate(id_to_str)}
-
         return str_to_id
 
     return _build_vocab
