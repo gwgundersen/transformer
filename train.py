@@ -69,11 +69,6 @@ def greedy_decode(model, batch):
         )
         logits = model.output_projection(decoder_output)
 
-        # Check if the distribution is changing as we autoregressively generate
-        last_logits = logits[0, -1]
-        top_ids = jnp.argsort(last_logits)[-5:][::-1]
-        # print(last_logits[top_ids])
-
         # logits has shape (1, current_seq_len, vocab_size); we want to take best word, i.e. argmax
         # over vocab size
         next_id = jnp.argmax(logits[0, -1, :])
@@ -95,7 +90,7 @@ if __name__ == "__main__":
         vocab_de = json.load(f)
     with open("vocab_en.json") as f:
         vocab_en = json.load(f)
-    en_id_to_word = {v: k for k, v in vocab_en.items()}
+    en_id_to_word = {i: w for w, i in vocab_en.items()}
 
     # German to English translation transformer
     model = Transformer(
@@ -123,12 +118,10 @@ if __name__ == "__main__":
 
     # for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
     batch = next(batches(train_data, batch_size=32))
-    y_true = batch["src"][0]
+    y_true = batch["tgt_input"][0]
 
     def print_sentence(x):
-        x = x[x != PAD_ID]._value
-        x = " ".join([en_id_to_word[i] for i in x])
-        print(x)
+        print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
     losses = []
     for step in range(1000):
