@@ -72,7 +72,7 @@ def greedy_decode(model, batch):
         # Check if the distribution is changing as we autoregressively generate
         last_logits = logits[0, -1]
         top_ids = jnp.argsort(last_logits)[-5:][::-1]
-        print(last_logits[top_ids])
+        # print(last_logits[top_ids])
 
         # logits has shape (1, current_seq_len, vocab_size); we want to take best word, i.e. argmax
         # over vocab size
@@ -95,15 +95,9 @@ if __name__ == "__main__":
         vocab_de = json.load(f)
     with open("vocab_en.json") as f:
         vocab_en = json.load(f)
-    
-    for vocab in [vocab_de, vocab_en]:
-        try:
-            assert min(vocab.values()) == 0
-            assert max(vocab.values()) == len(vocab) - 1
-            assert len(set(vocab.values())) == len(vocab)
-        except:
-            import ipdb; ipdb.set_trace()
+    en_id_to_word = {v: k for k, v in vocab_en.items()}
 
+    # German to English translation transformer
     model = Transformer(
         src_vocab=vocab_de,
         tgt_vocab=vocab_en,
@@ -131,6 +125,11 @@ if __name__ == "__main__":
     batch = next(batches(train_data, batch_size=32))
     y_true = batch["src"][0]
 
+    def print_sentence(x):
+        x = x[x != PAD_ID]._value
+        x = " ".join([en_id_to_word[i] for i in x])
+        print(x)
+
     losses = []
     for step in range(1000):
         loss = train_step(model, optimizer, batch)
@@ -138,5 +137,5 @@ if __name__ == "__main__":
         losses.append(loss)
         if step % 10 == 0:
             y_hat = greedy_decode(model, batch)
-            print(y_true[y_true != PAD_ID])
-            print(y_hat[y_hat != PAD_ID])
+            print_sentence(y_true)
+            print_sentence(y_hat)
