@@ -5,11 +5,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-
 import json
-
-from dataset import load_iwslt_en_de
-from tokenizer import build_vocab
 
 
 """
@@ -125,7 +121,6 @@ class MultiheadAttention(nnx.Module):
 
 
 class PositionwiseFeedForward(nnx.Module):
-
 
     def __init__(self, model_dim, ff_dim, dropout_rate, rngs):
         """
@@ -293,9 +288,9 @@ class Transformer(nnx.Module):
             DecoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs)
             for _ in range(num_modules)
         ])
-        self.output_projection = nnx.Linear(model_dim, len(tgt_vocab), rngs=rngs)
         self.encoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
         self.decoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
+        self.output_projection = nnx.Linear(model_dim, len(tgt_vocab), rngs=rngs)
 
     def __call__(self, src, tgt, src_mask, tgt_mask):
         """

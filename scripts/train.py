@@ -5,9 +5,10 @@ from flax import nnx
 import jax.numpy as jnp
 import optax
 
-from dataset import load_iwslt_en_de
-from transformer import Transformer
-from tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+from transformer.dataset import load_iwslt_en_de
+from transformer.transformer import Transformer
+from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+from transformer.decode import greedy_decode
 
 
 # --------------------------------------------------------------------------------------------------
@@ -46,41 +47,6 @@ def train_step(model, optimizer, batch):
     return loss.item()
 
 
-def greedy_decode(model, batch):
-    """
-    """
-    model.eval()
-
-    src = batch["src"][:1]
-    src_mask = batch["src_mask"][:1]
-    encoder_output = model.encode(src, src_mask)
-
-    # Start generating output, one token at a time
-    tgt = jnp.array([[BOS_ID]])
-
-    for step in range(MAX_LENGTH - 1):
-
-        tgt_mask = make_tgt_mask(tgt)
-        decoder_output = model.decode(
-            encoder_output,
-            src_mask,
-            tgt,
-            tgt_mask
-        )
-        logits = model.output_projection(decoder_output)
-
-        # logits has shape (1, current_seq_len, vocab_size); we want to take best word, i.e. argmax
-        # over vocab size
-        next_id = jnp.argmax(logits[0, -1, :])
-
-        tgt = jnp.concatenate([tgt, next_id[None, None]], axis=1)
-
-        if next_id == EOS_ID:
-            break
-
-    return tgt.squeeze()
-
-
 if __name__ == "__main__":
     data = load_iwslt_en_de()
     train_data = data["train"].to_list()
@@ -96,7 +62,7 @@ if __name__ == "__main__":
     model = Transformer(
         src_vocab=vocab_de,
         tgt_vocab=vocab_en,
-        dropout_rate=0.0
+        dropout_rate=0.1
     )
 
     optimizer = nnx.Optimizer(
@@ -116,19 +82,24 @@ if __name__ == "__main__":
     # FIXME: Explain.
     train_data = train_data.with_format("jax")
 
-    # for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
-    batch = next(batches(train_data, batch_size=32))
-    y_true = batch["tgt_input"][0]
-
     def print_sentence(x):
         print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
     losses = []
-    for step in range(1000):
-        loss = train_step(model, optimizer, batch)
-        print(f"{step}\t{loss}")
-        losses.append(loss)
-        if step % 10 == 0:
-            y_hat = greedy_decode(model, batch)
-            print_sentence(y_true)
-            print_sentence(y_hat)
+    for epoch in range(1000):
+
+        for batch in batches(train_data, batch_size=128):
+            loss = train_step(model, optimizer, batch)
+            losses.append(loss)
+            break
+        
+        print(f"{epoch}\t{loss}")
+
+        y_true = batch["tgt_input"][0]
+        y_hat = greedy_decode(
+            model, 
+            src=batch["src"][:1],
+            src_mask=batch["src_mask"][:1],
+        )
+        print_sentence(y_true)
+        print_sentence(y_hat)
