@@ -1,0 +1,25 @@
+macbook locally
+---------------
+[x] implement architecture + verify shapes + masking
+[x] overfit 1 batch
+[x] train on a few thousand examples
+[x] verify loss falls
+[x] fix missing handling of BOS
+[x] implement greedy decoding + test
+[x] one batch test
+[x] modularize code base
+look at attention layers
+JIT train_step
+checkpoints
+
+
+collab notebook
+---------------
+full long training run
+evaluations
+
+
+polish
+------
+clean up code: docstrings, comments
+annotate: explain all concepts in fixmes
