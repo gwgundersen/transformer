@@ -5,64 +5,35 @@ from flax import nnx
 import jax.numpy as jnp
 import optax
 
+from transformer.checkpoints import save_checkpoint
+from transformer.config import IWSLTConfig
 from transformer.dataset import load_iwslt_en_de
-from transformer.transformer import Transformer
-from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
 from transformer.decode import greedy_decode
+from transformer.model import Transformer
+from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+from transformer.train import batches, train_step
+from transformer.vocab import load_vocab
 
 
 # --------------------------------------------------------------------------------------------------
 
-MAX_LENGTH : int = 100
-
-
-def batches(data, batch_size: int) -> list:
-    """
-    """
-    for start in range(0, len(data), batch_size):
-        yield data[start:start + batch_size]
-        
-
-def train_step(model, optimizer, batch):
-    """
-    """
-    model.train()
-
-    src = batch["src"]
-    src_mask = batch["src_mask"]
-    tgt_input = batch["tgt_input"]
-    tgt_mask = batch["tgt_mask"]
-    tgt_output = batch["tgt_output"]
-
-    def loss_fn(model):
-        logits = model(src, tgt_input, src_mask, tgt_mask)
-        # FIXME: Explain teacher forcing
-        loss = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_output)
-        # FIXME: Explain predicting padding
-        valid = tgt_output != PAD_ID
-        return (loss * valid).sum() / valid.sum()
-
-    loss, grads = nnx.value_and_grad(loss_fn)(model)
-    optimizer.update(model, grads)
-    return loss.item()
+SAVE_EVERY = 100
 
 
 if __name__ == "__main__":
     data = load_iwslt_en_de()
     train_data = data["train"].to_list()
 
-    # FIXME: Could be behind simple loaders.
-    with open("vocab_de.json") as f:
-        vocab_de = json.load(f)
-    with open("vocab_en.json") as f:
-        vocab_en = json.load(f)
+    vocab_de = load_vocab("de")
+    vocab_en = load_vocab("en")
     en_id_to_word = {i: w for w, i in vocab_en.items()}
 
-    # German to English translation transformer
+    config = IWSLTConfig()
+
     model = Transformer(
         src_vocab=vocab_de,
         tgt_vocab=vocab_en,
-        dropout_rate=0.1
+        dropout_rate=0.0
     )
 
     optimizer = nnx.Optimizer(
@@ -74,7 +45,7 @@ if __name__ == "__main__":
     # FIXME: What is the max length?
     train_data = data["train"].map(
         prepare,
-        fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": MAX_LENGTH},
+        fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": config.max_length},
         remove_columns=data["train"].column_names,
         load_from_cache_file=True,
     )
@@ -85,13 +56,22 @@ if __name__ == "__main__":
     def print_sentence(x):
         print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
+    step = 0
     losses = []
     for epoch in range(1000):
 
         for batch in batches(train_data, batch_size=128):
             loss = train_step(model, optimizer, batch)
             losses.append(loss)
-            break
+            if step % SAVE_EVERY == 0:
+                print(f"Saving checkpoint at {step=}")
+                save_checkpoint(
+                    f"iwslt_{step=}",
+                    model,
+                    optimizer,
+                    step=step
+                )
+            step +=1 
         
         print(f"{epoch}\t{loss}")
 

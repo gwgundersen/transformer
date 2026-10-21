@@ -1,3 +1,7 @@
+"""
+FIXME: Explain the purpose of this test.
+"""
+
 import json
 import numpy as np
 
@@ -26,7 +30,6 @@ if __name__ == "__main__":
 
     config = IWSLTConfig()
 
-    # German to English translation transformer
     model = Transformer(
         src_vocab=vocab_de,
         tgt_vocab=vocab_en,
