@@ -2,6 +2,7 @@ import json
 import numpy as np
 
 from flax import nnx
+import jax
 import jax.numpy as jnp
 import optax
 
@@ -21,6 +22,8 @@ SAVE_EVERY = 100
 
 
 if __name__ == "__main__":
+    print(f"Jax devices: {jax.devices()}")
+
     data = load_iwslt_en_de()
     train_data = data["train"].to_list()
 

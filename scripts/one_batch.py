@@ -21,6 +21,8 @@ from transformer.vocab import load_vocab
 # --------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    print(f"Jax devices: {jax.devices()}")
+
     data = load_iwslt_en_de()
     train_data = data["train"].to_list()
 
