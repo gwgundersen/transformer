@@ -1,5 +1,6 @@
 from datasets import Dataset
 from flax import nnx
+from jax import numpy as jnp
 import optax
 
 from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
@@ -14,7 +15,8 @@ def batches(data: Dataset, batch_size: int) -> Dataset:
         yield data[start:start + batch_size]
         
 
-def train_step(model, optimizer, batch):
+@nnx.jit
+def train_step(model, optimizer, batch) -> jnp.array:
     """
     """
     model.train()
@@ -35,4 +37,4 @@ def train_step(model, optimizer, batch):
 
     loss, grads = nnx.value_and_grad(loss_fn)(model)
     optimizer.update(model, grads)
-    return loss.item()
+    return loss

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class IWSLTConfig:
-    max_length: int = 100
+    max_length: int = 50
     model_dim: int = 512
     ff_dim: int = 2048
     n_heads: int = 8

@@ -23,7 +23,7 @@ def save_checkpoint(path: str | Path, model: Transformer, optimizer: nnx.Optimiz
         "optimizer": nnx.state(optimizer),
         "step": jnp.asarray(step),
     }
-    ocp.save(path, state, overwrite=True)
+    ocp.save_async(path, state, overwrite=True)
 
 
 def load_checkpoint(path: str | Path) -> dict:

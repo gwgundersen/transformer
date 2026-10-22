@@ -20,7 +20,7 @@ from transformer.vocab import load_vocab
 
 SAVE_EVERY = 100
 # Small but try to prevent memory fragmentation on Colab GPU
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 
 
 if __name__ == "__main__":
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             loss = train_step(model, optimizer, batch)
             losses.append(loss)
             if step % SAVE_EVERY == 0:
-                print(f"Saving checkpoint at {step=}")
+                print(f"{step=}: loss={float(losses[-1]):.4f}; saving checkpoint")
                 save_checkpoint(
                     "iwslt",
                     model,
@@ -78,7 +78,7 @@ if __name__ == "__main__":
                 )
             step +=1 
         
-        print(f"{epoch}\t{loss}")
+        print(f"{epoch}\t{float(losses[-1]):.4f}")
 
         y_true = batch["tgt_input"][0]
         y_hat = greedy_decode(
