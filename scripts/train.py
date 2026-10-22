@@ -19,6 +19,8 @@ from transformer.vocab import load_vocab
 # --------------------------------------------------------------------------------------------------
 
 SAVE_EVERY = 100
+# Small but try to prevent memory fragmentation on Colab GPU
+BATCH_SIZE = 16
 
 
 if __name__ == "__main__":
@@ -63,7 +65,7 @@ if __name__ == "__main__":
     losses = []
     for epoch in range(1000):
 
-        for batch in batches(train_data, batch_size=128):
+        for batch in batches(train_data, batch_size=BATCH_SIZE):
             loss = train_step(model, optimizer, batch)
             losses.append(loss)
             if step % SAVE_EVERY == 0:
