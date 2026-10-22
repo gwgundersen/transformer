@@ -71,7 +71,7 @@ if __name__ == "__main__":
             if step % SAVE_EVERY == 0:
                 print(f"Saving checkpoint at {step=}")
                 save_checkpoint(
-                    f"iwslt_{step=}",
+                    f"iwslt_{step}",
                     model,
                     optimizer,
                     step=step

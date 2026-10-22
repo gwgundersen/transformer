@@ -21,3 +21,4 @@ if __name__ == "__main__":
         json.dump(vocab_de, f)
     with open(VOCAB_DIR / "en.json", "w") as f:
         json.dump(vocab_en, f)
+    print("Vocabs generated")
