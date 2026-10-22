@@ -18,6 +18,11 @@ dependencies = [
     "spacy>=3.8.16",
 ]
 
+[project.optional-dependencies]
+cuda = [
+    "jax[cuda13]>=0.11.2,<0.12",
+]
+
 [project.scripts]
 transformer = "transformer:main"
 
