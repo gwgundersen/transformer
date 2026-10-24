@@ -5,6 +5,7 @@ from flax import nnx
 import jax
 import jax.numpy as jnp
 import optax
+import time
 
 from transformer.checkpoints import save_checkpoint
 from transformer.config import IWSLTConfig
@@ -73,9 +74,8 @@ if __name__ == "__main__":
             losses.append(loss)
             step +=1 
         
-        print(f"{epoch}\t{float(losses[-1]):.4f}")
-
         if epoch % SAVE_EVERY == 0:
+            print(f"{epoch}\t{float(losses[-1]):.4f}")
             save_checkpoint(
                 "iwslt",
                 model,

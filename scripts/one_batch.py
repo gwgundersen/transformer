@@ -4,6 +4,7 @@ FIXME: Explain the purpose of this test.
 
 import json
 import numpy as np
+import time
 
 from flax import nnx
 import jax
@@ -24,7 +25,7 @@ from transformer.vocab import load_vocab
 # --------------------------------------------------------------------------------------------------
 
 BATCH_SIZE = 128
-DECODE_EVERY = 10
+DECODE_EVERY = 50
 
 
 if __name__ == "__main__":
@@ -69,15 +70,20 @@ if __name__ == "__main__":
     y_true = batch["tgt"][0][:-1]
 
     def print_sentence(x):
-        print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
+        print("\t" + " ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
     losses = []
     for step in range(1000):
+
         loss = train_step(model, optimizer, batch)
-        print(f"{step}\t{loss}")
         losses.append(loss)
 
         if step % DECODE_EVERY == 0:
+
+            # Force a sync between Python and GPU before computing the time
+            jax.block_until_ready(loss)
+            elapsed = time.perf_counter() - t0
+            print(f"{step}\t{loss} ({elapsed=:.2f})")
 
             src = batch["src"]
             tgt = batch["tgt"]

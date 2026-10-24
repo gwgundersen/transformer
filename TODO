@@ -9,8 +9,10 @@ macbook locally
 [x] one batch test
 [x] modularize code base
 look at attention layers
-JIT train_step
-checkpoints
+[x] JIT train_step
+[x] checkpoints
+[x] MLX
+
 
 
 collab notebook

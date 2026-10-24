@@ -12,7 +12,8 @@ dependencies = [
     "flax>=0.12.10",
     "huggingface-hub<2",
     "ipdb>=0.13.13",
-    "jax==0.12.0.1",
+    "jax==0.11.2",  # Need this version for jax-mps
+    "jax-mps>=0.11.1; sys_platform == 'darwin'",
     "matplotlib>=3.11.2",
     "numpy>=2.5.4",
     "optax>=0.2.8",
@@ -22,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 cuda = [
-    "jax[cuda13]==0.12.0.1",
+    "jax[cuda13]==0.11.2",
 ]
 
 [project.scripts]
