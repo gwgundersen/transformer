@@ -13,7 +13,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CHECKPOINT_DIR = PROJECT_ROOT / "artifacts" / "checkpoints"
 
 
-def save_checkpoint(path: str | Path, model: Transformer, optimizer: nnx.Optimizer, step: int):
+def save_checkpoint(
+    path: str | Path,
+    model: Transformer,
+    optimizer: nnx.Optimizer,
+    losses: list,
+    step: int
+) -> None:
     """
     Save model and optimizer state at training step `step`.
     """
@@ -21,6 +27,7 @@ def save_checkpoint(path: str | Path, model: Transformer, optimizer: nnx.Optimiz
     state = {
         "model": nnx.state(model),
         "optimizer": nnx.state(optimizer),
+        "loss_history": losses,
         "step": jnp.asarray(step),
     }
     ocp.save_async(path, state, overwrite=True)

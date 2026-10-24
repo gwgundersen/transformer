@@ -70,7 +70,13 @@ def _prepare(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) 
     # Add BOS/EOS and then padding
     ids = [BOS_ID, *ids, EOS_ID]
     padding = [PAD_ID] * (max_length - len(ids))
-    return np.array(ids + padding)
+
+    # Use int32. Using current tokenization, the German vocab has 61,841 IDs. Note:
+    #   2^16 = 65,536
+    #   2^32 = 4,294,967,296
+    # So while int16 would fit this vocabularly, only just. If vocabulary grew, int16 would
+    # fail silently by wrapping tokens
+    return np.array(ids + padding, dtype=np.int32)
 
 
 def prepare(x: dict, vocab: dict, max_length: int) -> dict:
@@ -82,45 +88,36 @@ def prepare(x: dict, vocab: dict, max_length: int) -> dict:
         LANG_TO_TOKENIZER["de"],
         max_length,
     )
-
-    # The source mask only needs to remove invalid tokens.
-    # FIXME: Explain None, None, which is reshaping to add n_head and broadcasting across (size, size)
-    # dims
-    src_mask = (src != PAD_ID)[None, None, :]
-
     tgt = _prepare(
         x["translation"]["en"],
         vocab["en"],
         LANG_TO_TOKENIZER["en"],
         max_length,
     )
-
-    # FIXME: Explain
-    tgt_input = tgt[:-1]
-    tgt_output = tgt[1:]
-
-    tgt_mask = make_tgt_mask(tgt_input)
-
     return {
         "src": src,
-        "src_mask": src_mask,
-        "tgt_input": tgt_input,
-        "tgt_mask": tgt_mask,
-        "tgt_output": tgt_output,
+        "tgt": tgt
     }
+
+
+def make_src_mask(src):
+    """
+    """
+    # Attention has shape (B, H, Q, K); add dimensions so that src mask works.
+    return (src != PAD_ID)[:, None, None, :]
 
 
 def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarray:
     """
     """
-    mask = (tgt_input != PAD_ID) & causal_mask(len(tgt_input))
-    # FIXME: Add new axis to allow broadcasting over n_heads
-    return mask[None, :, :]
+    # Add new axis to allow broadcasting over n_heads
+    causal_mask = make_causal_mask(tgt_input.shape[1])
+    return (tgt_input != PAD_ID)[:, None, None, :] & causal_mask
 
 
-def causal_mask(size: int) -> np.ndarray:
+def make_causal_mask(size: int) -> np.ndarray:
     """
+    Build the mask that enforces causality when decoding.
     """
-    # FIXME: Explain
     score_shape = (size, size)
     return np.tril(np.ones(score_shape), k=0).astype(bool)

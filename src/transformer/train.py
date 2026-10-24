@@ -1,19 +1,30 @@
 from datasets import Dataset
 from flax import nnx
 from jax import numpy as jnp
+import numpy as np
 import optax
 
-from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+from transformer.tokenizer import make_src_mask, make_tgt_mask, PAD_ID
 
 
 # --------------------------------------------------------------------------------------------------
 
-def batches(data: Dataset, batch_size: int) -> Dataset:
+def batches(src: np.ndarray, tgt: np.ndarray, batch_size: int, rng: np.random.Generator) -> dict:
     """
     """
-    for start in range(0, len(data), batch_size):
-        yield data[start:start + batch_size]
-        
+    perm = rng.permutation(len(src))
+    for start in range(0, len(src), batch_size):
+        inds = perm[start:start + batch_size]
+        # Only return batches with the same size:
+        # 1. Avoids an extra JAX compile
+        # 2. Loss computation is over same number of samples
+        if len(inds) < batch_size:
+            return
+        yield {
+            "src": src[inds],
+            "tgt": tgt[inds]
+        }
+
 
 @nnx.jit
 def train_step(model, optimizer, batch) -> jnp.array:
@@ -22,10 +33,14 @@ def train_step(model, optimizer, batch) -> jnp.array:
     model.train()
 
     src = batch["src"]
-    src_mask = batch["src_mask"]
-    tgt_input = batch["tgt_input"]
-    tgt_mask = batch["tgt_mask"]
-    tgt_output = batch["tgt_output"]
+    tgt = batch["tgt"]
+
+    tgt_input = tgt[:, :-1]
+    tgt_output = tgt[:, 1:]
+
+    # Build masks on the fly. This is cheap and jit-able.
+    src_mask = make_src_mask(src)
+    tgt_mask = make_tgt_mask(tgt_input)
 
     def loss_fn(model):
         logits = model(src, tgt_input, src_mask, tgt_mask)

@@ -6,6 +6,7 @@ import json
 import numpy as np
 
 from flax import nnx
+import jax
 import jax.numpy as jnp
 import optax
 
@@ -13,15 +14,21 @@ from transformer.config import IWSLTConfig
 from transformer.dataset import load_iwslt_en_de
 from transformer.decode import greedy_decode
 from transformer.model import Transformer
-from transformer.tokenizer import build_vocab, prepare, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+from transformer.tokenizer import (
+    build_vocab, prepare, make_causal_mask, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
+)
 from transformer.train import batches, train_step
 from transformer.vocab import load_vocab
 
 
 # --------------------------------------------------------------------------------------------------
 
+BATCH_SIZE = 128
+DECODE_EVERY = 10
+
+
 if __name__ == "__main__":
-    print(f"Jax devices: {jax.devices()}")
+    print(f"JAX devices: {jax.devices()}")
 
     data = load_iwslt_en_de()
     train_data = data["train"]
@@ -44,7 +51,6 @@ if __name__ == "__main__":
         wrt=nnx.Param,
     )
 
-    # FIXME: What is the max length?
     train_data = data["train"].map(
         prepare,
         fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": config.max_length},
@@ -52,12 +58,15 @@ if __name__ == "__main__":
         load_from_cache_file=True,
     )
 
-    # FIXME: Explain.
-    train_data = train_data.with_format("jax")
+    # HuggingFace's API will return a list. Convert to a block of numpy arrays.
+    train_data = train_data.with_format("numpy")
+    src = np.asarray(train_data["src"])
+    tgt = np.asarray(train_data["tgt"])
 
     # for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
-    batch = next(batches(train_data, batch_size=32))
-    y_true = batch["tgt_input"][0]
+    rng = np.random.default_rng(seed=0)
+    batch = {"src": src[:BATCH_SIZE], "tgt": tgt[:BATCH_SIZE]}
+    y_true = batch["tgt"][0][:-1]
 
     def print_sentence(x):
         print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
@@ -67,11 +76,22 @@ if __name__ == "__main__":
         loss = train_step(model, optimizer, batch)
         print(f"{step}\t{loss}")
         losses.append(loss)
-        if step % 10 == 0:
+
+        if step % DECODE_EVERY == 0:
+
+            src = batch["src"]
+            tgt = batch["tgt"]
+            tgt_input = tgt[:, :-1]
+            tgt_output = tgt[:, 1:]
+            src_mask = (src != PAD_ID)[:, None, None, :]
+            size = tgt_input.shape[1]
+            causal_mask = make_causal_mask(size)
+            tgt_mask = (tgt_input != PAD_ID)[:, None, None, :] & causal_mask
+
             y_hat = greedy_decode(
                 model,
-                src=batch["src"][:1],
-                src_mask=batch["src_mask"][:1],
+                src=src[:1],
+                src_mask=src_mask[:1],
                 max_length=config.max_length
             )
             print_sentence(y_true)
