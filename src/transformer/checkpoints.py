@@ -6,7 +6,6 @@ from orbax.checkpoint import v1 as ocp
 
 from transformer.model import Transformer
 
-
 # --------------------------------------------------------------------------------------------------
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

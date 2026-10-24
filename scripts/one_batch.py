@@ -2,25 +2,20 @@
 FIXME: Explain the purpose of this test.
 """
 
-import json
-import numpy as np
 import time
 
-from flax import nnx
 import jax
-import jax.numpy as jnp
+import numpy as np
 import optax
+from flax import nnx
 
 from transformer.config import IWSLTConfig
 from transformer.dataset import load_iwslt_en_de
 from transformer.decode import greedy_decode
 from transformer.model import Transformer
-from transformer.tokenizer import (
-    build_vocab, prepare, make_causal_mask, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
-)
-from transformer.train import batches, train_step
+from transformer.tokenizer import PAD_ID, make_causal_mask, prepare
+from transformer.train import train_step
 from transformer.vocab import load_vocab
-
 
 # --------------------------------------------------------------------------------------------------
 

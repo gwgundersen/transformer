@@ -3,7 +3,6 @@ import jax.numpy as jnp
 from transformer.model import Transformer
 from transformer.tokenizer import BOS_ID, EOS_ID, make_tgt_mask
 
-
 # --------------------------------------------------------------------------------------------------
 
 def greedy_decode(
@@ -24,7 +23,6 @@ def greedy_decode(
 
         tgt_mask = make_tgt_mask(tgt)
         
-        # 
         decoder_output = model.decode(
             encoder_output,
             src_mask,

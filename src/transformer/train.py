@@ -1,11 +1,9 @@
-from datasets import Dataset
-from flax import nnx
-from jax import numpy as jnp
 import numpy as np
 import optax
+from flax import nnx
+from jax import numpy as jnp
 
-from transformer.tokenizer import make_src_mask, make_tgt_mask, PAD_ID
-
+from transformer.tokenizer import PAD_ID, make_src_mask, make_tgt_mask
 
 # --------------------------------------------------------------------------------------------------
 

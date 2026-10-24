@@ -1,12 +1,6 @@
-import copy
-from flax import nnx
-from flax.nnx import softmax
-import jax
 import jax.numpy as jnp
 import numpy as np
-
-import json
-
+from flax import nnx
 
 """
 Encoder:

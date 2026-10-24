@@ -20,26 +20,19 @@ Results on Apple M4 Pro with 24GB:
   Average tokens per second: 4182.534
 """
 
-import json
-import numpy as np
-
-from flax import nnx
-import jax
-import jax.numpy as jnp
-import optax
 import time
 
-from transformer.checkpoints import save_checkpoint
+import jax
+import numpy as np
+import optax
+from flax import nnx
+
 from transformer.config import IWSLTConfig
 from transformer.dataset import load_iwslt_en_de
-from transformer.decode import greedy_decode
 from transformer.model import Transformer
-from transformer.tokenizer import (
-    build_vocab, prepare, make_src_mask, make_tgt_mask, BOS_ID, EOS_ID, PAD_ID
-)
+from transformer.tokenizer import PAD_ID, prepare
 from transformer.train import batches, train_step
 from transformer.vocab import load_vocab
-
 
 # --------------------------------------------------------------------------------------------------
 

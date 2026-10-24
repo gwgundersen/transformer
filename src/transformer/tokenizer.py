@@ -1,12 +1,11 @@
 from collections import Counter
-from typing import Callable
+from collections.abc import Callable
 
 import jax.numpy as jnp
 import numpy as np
 from spacy.lang.de import German
 from spacy.lang.en import English
 from spacy.tokenizer import Tokenizer
-
 
 # FIXME: Explain why we need BOS/EOS
 PAD_WORD = "<blank>"

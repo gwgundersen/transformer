@@ -1,9 +1,8 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 from transformer.dataset import load_iwslt_en_de
 from transformer.tokenizer import build_vocab
-
 
 # --------------------------------------------------------------------------------------------------
 
