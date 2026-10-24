@@ -3,7 +3,7 @@ from pathlib import Path
 from datasets import load_dataset
 
 
-def load_iwslt_en_de():
+def load_iwslt2017_en_de():
     """
     Download/cache train/valid/test sets for German-to-English using HF's built-in Parquet loader.
     """
@@ -16,3 +16,9 @@ def load_iwslt_en_de():
         },
         cache_dir=str(Path(__file__).parent / ".cache" / "datasets"),
     )
+
+
+DATASETS = {
+    "iwslt2017-de-en": load_iwslt2017_en_de,
+}
+

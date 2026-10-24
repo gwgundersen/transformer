@@ -186,7 +186,7 @@ class EmbeddingLayer(nnx.Module):
 class EncoderLayer(nnx.Module):
 
     def __init__(
-        self, model_dim: int, ff_dim: int, n_attn_heads: int, dropout_rate: float, rngs: nnx.Rngs
+        self, model_dim: int, ff_dim: int, n_heads: int, dropout_rate: float, rngs: nnx.Rngs
     ):
         """
         """
@@ -194,7 +194,7 @@ class EncoderLayer(nnx.Module):
         self.norm2 = nnx.LayerNorm(model_dim, rngs=rngs)
         self.dropout1 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
-        self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
+        self.self_attention = MultiheadAttention(n_heads, model_dim, rngs=rngs)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs=rngs)
 
     def __call__(self, x, mask):
@@ -218,7 +218,7 @@ class EncoderLayer(nnx.Module):
 class DecoderLayer(nnx.Module):
 
     def __init__(
-        self, model_dim: int, ff_dim: int, n_attn_heads: int, dropout_rate: float, rngs: nnx.Rngs
+        self, model_dim: int, ff_dim: int, n_heads: int, dropout_rate: float, rngs: nnx.Rngs
     ):
         """
         """
@@ -228,8 +228,8 @@ class DecoderLayer(nnx.Module):
         self.dropout1 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout2 = nnx.Dropout(dropout_rate, rngs=rngs)
         self.dropout3 = nnx.Dropout(dropout_rate, rngs=rngs)
-        self.self_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
-        self.cross_attention = MultiheadAttention(n_attn_heads, model_dim, rngs=rngs)
+        self.self_attention = MultiheadAttention(n_heads, model_dim, rngs=rngs)
+        self.cross_attention = MultiheadAttention(n_heads, model_dim, rngs=rngs)
         self.feed_forward = PositionwiseFeedForward(model_dim, ff_dim, dropout_rate, rngs)
 
     def __call__(self, x, encoder_output, src_mask, tgt_mask):
@@ -265,9 +265,9 @@ class Transformer(nnx.Module):
         tgt_vocab: dict[str, int],
         model_dim: int = 512,
         ff_dim: int = 2048,
-        n_attn_heads: int = 8,
+        n_heads: int = 8,
         dropout_rate: float = 0.1,
-        num_modules: int = 6,
+        n_modules: int = 6,
         rngs: nnx.Rngs = nnx.Rngs(0),
     ):
         """
@@ -275,12 +275,12 @@ class Transformer(nnx.Module):
         self.src_embed = EmbeddingLayer(model_dim, src_vocab, dropout_rate, rngs)
         self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab, dropout_rate, rngs)
         self.encoder_layers = nnx.List([
-            EncoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs)
-            for _ in range(num_modules)
+            EncoderLayer(model_dim, ff_dim, n_heads, dropout_rate, rngs)
+            for _ in range(n_modules)
         ])
         self.decoder_layers = nnx.List([
-            DecoderLayer(model_dim, ff_dim, n_attn_heads, dropout_rate, rngs)
-            for _ in range(num_modules)
+            DecoderLayer(model_dim, ff_dim, n_heads, dropout_rate, rngs)
+            for _ in range(n_modules)
         ])
         self.encoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
         self.decoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)

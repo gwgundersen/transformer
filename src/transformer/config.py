@@ -1,11 +1,103 @@
 from dataclasses import dataclass
+import numpy as np
+
+
+# --------------------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class DatasetConfig:
+    dataset: str
+    src_lang: str
+    tgt_lang: str
+    max_length: int
+    bucket_boundaries: tuple[int, ...]
+    token_budget: int
 
 
 @dataclass(frozen=True)
-class IWSLTConfig:
-    max_length: int = 50
-    model_dim: int = 512
-    ff_dim: int = 2048
-    n_heads: int = 8
-    n_layers: int = 6
-    dropout_rate: float = 0.1
+class Data:
+    src: np.ndarray
+    tgt: np.ndarray
+    buckets: np.ndarray
+    src_vocab: dict[str, int]
+    tgt_vocab: dict[str, int]
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    model_dim: int
+    ff_dim: int
+    n_heads: int
+    n_modules: int
+    dropout_rate: float
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+    learning_rate: float
+    n_epochs: int
+    checkpoint_freq: int
+
+
+@dataclass(frozen=True)
+class ExperimentConfig:
+    name: str
+    data: DatasetConfig
+    model: ModelConfig
+    train: TrainConfig
+
+
+# --------------------------------------------------------------------------------------------------
+
+IWSLT_DATA = DatasetConfig(
+    dataset="iwslt2017-de-en",
+    src_lang="de",
+    tgt_lang="en",
+    max_length=128,
+    bucket_boundaries=(16, 24, 32, 48, 64, 128),
+    token_budget=4096
+)
+
+TRANSFORMER_BASE = ModelConfig(
+    model_dim=512,
+    ff_dim=2048,
+    n_heads=8,
+    n_modules=6,
+    dropout_rate=0.1
+)
+
+TRANSFORMER_BIG = ModelConfig(
+    model_dim=1024,
+    ff_dim=4096,
+    n_heads=16,
+    n_modules=6,
+    dropout_rate=0.3
+)
+
+ONE_BATCH_EXPERIMENT = ExperimentConfig(
+    name="one_batch",
+    data=IWSLT_DATA,
+    model=ModelConfig(
+        model_dim=512,
+        ff_dim=2048,
+        n_heads=8,
+        n_modules=6,
+        dropout_rate=0,
+    ),
+    train=TrainConfig(
+        learning_rate=1e-4,
+        n_epochs=100,
+        checkpoint_freq=10
+    )
+)
+
+IWSLT_EXPERIMENT = ExperimentConfig(
+    name="iwslt",
+    data=IWSLT_DATA,
+    model=TRANSFORMER_BASE,
+    train=TrainConfig(
+        learning_rate=1e-4,
+        n_epochs=100,
+        checkpoint_freq=10
+    )
+)

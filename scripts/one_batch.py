@@ -9,13 +9,12 @@ import numpy as np
 import optax
 from flax import nnx
 
-from transformer.config import IWSLTConfig
-from transformer.dataset import load_iwslt_en_de
-from transformer.decode import greedy_decode
+from transformer.config import ONE_BATCH_EXPERIMENT
+from transformer.batches import get_bucketed_batches
 from transformer.model import Transformer
-from transformer.tokenizer import PAD_ID, make_causal_mask, prepare
+from transformer.tokenizer import PAD_ID, prepare
 from transformer.train import train_step
-from transformer.vocab import load_vocab
+from transformer.experiment import load_data, build_model, build_optimizer
 
 # --------------------------------------------------------------------------------------------------
 
@@ -26,38 +25,21 @@ DECODE_EVERY = 50
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
-    data = load_iwslt_en_de()
-    train_data = data["train"]
-
-    vocab_de = load_vocab("de")
-    vocab_en = load_vocab("en")
-    en_id_to_word = {i: w for w, i in vocab_en.items()}
-
-    config = IWSLTConfig()
-
-    model = Transformer(
-        src_vocab=vocab_de,
-        tgt_vocab=vocab_en,
-        dropout_rate=0.0
+    data = load_data(ONE_BATCH_EXPERIMENT.data)
+    model = build_model(
+        IWSLT_EXPERIMENT.model,
+        vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
     )
+    optimizer = build_optimizer(ONE_BATCH_EXPERIMENT.train, model)
 
-    optimizer = nnx.Optimizer(
-        model,
-        optax.adam(1e-4),
-        wrt=nnx.Param,
+    rng = np.random.default_rng(seed=0)
+    batches = get_bucketed_batches(
+        data.src,
+        data.tgt,
+        buckets=data.buckets,
+        token_budget=IWSLT_EXPERIMENT.data.token_budget,
+        rng=rng,
     )
-
-    train_data = data["train"].map(
-        prepare,
-        fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": config.max_length},
-        remove_columns=data["train"].column_names,
-        load_from_cache_file=True,
-    )
-
-    # HuggingFace's API will return a list. Convert to a block of numpy arrays.
-    train_data = train_data.with_format("numpy")
-    src = np.asarray(train_data["src"])
-    tgt = np.asarray(train_data["tgt"])
 
     # for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
     rng = np.random.default_rng(seed=0)
@@ -68,7 +50,7 @@ if __name__ == "__main__":
         print("\t" + " ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
     losses = []
-    for step in range(1000):
+    for epoch in range(ONE_BATCH_EXPERIMENT.train.n_epochs):
 
         loss = train_step(model, optimizer, batch)
         losses.append(loss)
