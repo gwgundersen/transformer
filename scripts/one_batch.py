@@ -6,15 +6,12 @@ import time
 
 import jax
 import numpy as np
-import optax
-from flax import nnx
 
-from transformer.config import ONE_BATCH_EXPERIMENT
 from transformer.batches import get_bucketed_batches
-from transformer.model import Transformer
-from transformer.tokenizer import PAD_ID, prepare
+from transformer.config import IWSLT_EXPERIMENT, ONE_BATCH_EXPERIMENT
+from transformer.inputs import build_model, build_optimizer, load_data
+from transformer.tokenizer import PAD_ID
 from transformer.train import train_step
-from transformer.experiment import load_data, build_model, build_optimizer
 
 # --------------------------------------------------------------------------------------------------
 
@@ -41,13 +38,13 @@ if __name__ == "__main__":
         rng=rng,
     )
 
-    # for src, src_mask, tgt_input, tgt_mask, tgt_output in batches(train_data, batch_size=128):
-    rng = np.random.default_rng(seed=0)
     batch = {"src": src[:BATCH_SIZE], "tgt": tgt[:BATCH_SIZE]}
     y_true = batch["tgt"][0][:-1]
 
+    # Map English IDs to words to pretty translation.
+    tgt_id_to_word = {i: w for w, i in data.tgt_vocab.items()}
     def print_sentence(x):
-        print("\t" + " ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
+        print("\t" + " ".join([tgt_id_to_word[int(i)] for i in x if i != PAD_ID]))
 
     losses = []
     for epoch in range(ONE_BATCH_EXPERIMENT.train.n_epochs):

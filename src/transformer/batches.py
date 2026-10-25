@@ -1,9 +1,6 @@
 import numpy as np
-import optax
-from flax import nnx
-from jax import numpy as jnp
 
-from transformer.tokenizer import PAD_ID, make_src_mask, make_tgt_mask
+from transformer.tokenizer import PAD_ID
 
 # --------------------------------------------------------------------------------------------------
 

@@ -34,39 +34,47 @@ Results on Apple M4 Pro with 24GB:
   Average tokens per second: 4182.534
 """
 
+import argparse
 import time
 
 import jax
 import numpy as np
-import optax
 from flax import nnx
+from transformer.experiment import build_model, build_optimizer, load_data
 
+from transformer.batches import get_batches, get_bucketed_batches
 from transformer.config import IWSLT_EXPERIMENT
-from transformer.batches import get_bucketed_batches
-from transformer.model import Transformer
-from transformer.tokenizer import PAD_ID, prepare
+from transformer.tokenizer import PAD_ID
 from transformer.train import train_step
-from transformer.experiment import load_data, build_model, build_optimizer
 
 # --------------------------------------------------------------------------------------------------
 
 WARMUP_STEPS = 5
 BENCHMARK_STEPS = 100
-DO_LENGTH_BUCKETING = True
 
 
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
-    data = load_data(IWSLT_EXPERIMENT.data)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bucketing", action="store_true")
+    args = parser.parse_args()
+
+    data = load_data(
+        cfg=IWSLT_EXPERIMENT.data
+    )
     model = build_model(
-        IWSLT_EXPERIMENT.model,
+        cfg=IWSLT_EXPERIMENT.model,
         vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
     )
-    optimizer = build_optimizer(IWSLT_EXPERIMENT.train, model)
+    optimizer = build_optimizer(
+        cfg=IWSLT_EXPERIMENT.train,
+        model=model
+    )
 
     rng = np.random.default_rng(seed=0)
-    if DO_LENGTH_BUCKETING:
+    if args.bucketing:
+        print("Getting bucketed batches")
         batches = get_bucketed_batches(
             data.src,
             data.tgt,
@@ -75,10 +83,11 @@ if __name__ == "__main__":
             rng=rng,
         )
     else:
+        print("Getting batches (no bucketing)")
         batches = get_batches(
             data.src,
             data.tgt,
-            batch_size=data.batch_size,
+            batch_size=IWSLT_EXPERIMENT.train.batch_size,
             rng=rng,
         )
 
@@ -94,15 +103,21 @@ if __name__ == "__main__":
 
     # Phase 2: Run the warmup for WARMUP_STEPS-1 steps. Allow memory allocaiton and caches, etc.
     # to settle a bit (hand-wavy, but I think this is what is happening).
-    for l in np.unique(data.buckets):
-        import ipdb; ipdb.set_trace()
-        train_step(model, optimizer, next(batches))
+    if args.bucketing:
+        for l in IWSLT_EXPERIMENT.data.bucket_boundaries:
+            # Obviously slow.
+            batch = next(b for b in batches if b["src"].shape[1] == l)
+            train_step(model, optimizer, batch)
+    else:
+        for i in range(1, WARMUP_STEPS):
+            train_step(model, optimizer, batches[i])
+    print("Warm up complete")
 
     # Phase 3: Measure the train_step; don't move anything off device, e.g. float(loss)
     t0 = time.perf_counter()
     n_tokens = 0
     for i in range(WARMUP_STEPS, WARMUP_STEPS + BENCHMARK_STEPS):
-        batch = next(batches)
+        batch = batches[i]
         train_step(model, optimizer, batch)
         n_tokens += (batch["src"] != PAD_ID).sum()
         
@@ -111,5 +126,5 @@ if __name__ == "__main__":
     seconds_per_step = elapsed_sec / BENCHMARK_STEPS
     tokens_per_sec = n_tokens / elapsed_sec
     
-    print(f"Average seconds per step: {seconds_per_step:.3f}")
-    print(f"Average tokens per second: {tokens_per_sec:.3f}")
+    print(f"Seconds per step: {seconds_per_step:.3f}")
+    print(f"Tokens per second: {tokens_per_sec:.3f}")

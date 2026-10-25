@@ -7,8 +7,8 @@ from transformer.checkpoints import save_checkpoint
 from transformer.config import IWSLTConfig
 from transformer.dataset import load_iwslt_en_de
 from transformer.decode import greedy_decode
-from transformer.model import Transformer
-from transformer.tokenizer import PAD_ID, make_src_mask, make_tgt_mask, prepare
+from transformer.model import Transformer, make_src_mask, make_tgt_mask
+from transformer.tokenizer import PAD_ID, prepare
 from transformer.train import batches, train_step
 from transformer.vocab import load_vocab
 

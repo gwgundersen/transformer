@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-import numpy as np
-
 
 # --------------------------------------------------------------------------------------------------
 
@@ -15,15 +13,6 @@ class DatasetConfig:
 
 
 @dataclass(frozen=True)
-class Data:
-    src: np.ndarray
-    tgt: np.ndarray
-    buckets: np.ndarray
-    src_vocab: dict[str, int]
-    tgt_vocab: dict[str, int]
-
-
-@dataclass(frozen=True)
 class ModelConfig:
     model_dim: int
     ff_dim: int
@@ -35,6 +24,7 @@ class ModelConfig:
 @dataclass(frozen=True)
 class TrainConfig:
     learning_rate: float
+    batch_size: int
     n_epochs: int
     checkpoint_freq: int
 
@@ -75,7 +65,7 @@ TRANSFORMER_BIG = ModelConfig(
 )
 
 ONE_BATCH_EXPERIMENT = ExperimentConfig(
-    name="one_batch",
+    name="Verify model overfits to one batch",
     data=IWSLT_DATA,
     model=ModelConfig(
         model_dim=512,
@@ -86,17 +76,19 @@ ONE_BATCH_EXPERIMENT = ExperimentConfig(
     ),
     train=TrainConfig(
         learning_rate=1e-4,
+        batch_size=128,
         n_epochs=100,
         checkpoint_freq=10
     )
 )
 
 IWSLT_EXPERIMENT = ExperimentConfig(
-    name="iwslt",
+    name="Train model on IWSLT 2017 German to English translation task",
     data=IWSLT_DATA,
     model=TRANSFORMER_BASE,
     train=TrainConfig(
         learning_rate=1e-4,
+        batch_size=128,
         n_epochs=100,
         checkpoint_freq=10
     )

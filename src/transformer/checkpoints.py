@@ -5,12 +5,9 @@ from jax import numpy as jnp
 from orbax.checkpoint import v1 as ocp
 
 from transformer.model import Transformer
+from transformer.paths import CHECKPOINT_DIR
 
 # --------------------------------------------------------------------------------------------------
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CHECKPOINT_DIR = PROJECT_ROOT / "artifacts" / "checkpoints"
-
 
 def save_checkpoint(
     path: str | Path,

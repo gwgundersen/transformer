@@ -1,19 +1,30 @@
-import numpy as np
+from dataclasses import dataclass
 
-from flax import nnx
+import numpy as np
 import optax
+from flax import nnx
 
 from transformer.batches import assign_buckets
-from transformer.config import DatasetConfig, Data, ModelConfig, TrainConfig
+from transformer.config import DatasetConfig, ModelConfig, TrainConfig
 from transformer.dataset import DATASETS
-from transformer.tokenizer import prepare
 from transformer.model import Transformer
+from transformer.tokenizer import encode_example
 from transformer.vocab import load_vocab
+
+# --------------------------------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Data:
+    src: np.ndarray
+    tgt: np.ndarray
+    buckets: np.ndarray
+    src_vocab: dict[str, int]
+    tgt_vocab: dict[str, int]
 
 
 def load_data(cfg: DatasetConfig) -> Data:
     """
-    loads, tokenizes and caches the dataset, then returns the padded src/tgt
+    Load data, tokenize, cache. Return padded src/tgt pairs.
     """
     # Load 'raw' dataset.
     data = DATASETS[cfg.dataset]()
@@ -24,8 +35,12 @@ def load_data(cfg: DatasetConfig) -> Data:
     # Preprocess training data.
     # FIXME: Make this train or test set?
     train_data = data["train"].map(
-        prepare,
-        fn_kwargs={"vocab": vocabs, "max_length": cfg.max_length},
+        encode_example,
+        fn_kwargs={
+            "langs": (cfg.src_lang, cfg.tgt_lang),
+            "vocab": vocabs,
+            "max_length": cfg.max_length
+        },
         remove_columns=data["train"].column_names,
         load_from_cache_file=True,
     )

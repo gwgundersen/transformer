@@ -1,14 +1,10 @@
 import json
-from pathlib import Path
 
 from transformer.dataset import load_iwslt_en_de
+from transformer.paths import VOCAB_DIR
 from transformer.tokenizer import build_vocab
 
 # --------------------------------------------------------------------------------------------------
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-VOCAB_DIR = PROJECT_ROOT / "artifacts" / "vocab"
-
 
 if __name__ == "__main__":
     # Only generate the vocab using the training data, as using the validation/testing data leaks

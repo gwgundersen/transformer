@@ -54,6 +54,31 @@ def attention(
     return jnp.matmul(nnx.softmax(scores), value)
 
 
+def make_src_mask(src):
+    """
+    """
+    # Attention has shape (B, H, Q, K); add dimensions so that src mask works.
+    return (src != PAD_ID)[:, None, None, :]
+
+
+def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarray:
+    """
+    """
+    # Add new axis to allow broadcasting over n_heads
+    causal_mask = make_causal_mask(tgt_input.shape[1])
+    return (tgt_input != PAD_ID)[:, None, None, :] & causal_mask
+
+
+def make_causal_mask(size: int) -> np.ndarray:
+    """
+    Build the mask that enforces causality when decoding.
+    """
+    score_shape = (size, size)
+    return np.tril(np.ones(score_shape), k=0).astype(bool)
+
+
+# --------------------------------------------------------------------------------------------------
+
 class MultiheadAttention(nnx.Module):
 
     def __init__(self, n_heads: int, model_dim: int, rngs):
