@@ -8,11 +8,10 @@ macbook locally
 [x] implement greedy decoding + test
 [x] one batch test
 [x] modularize code base
-look at attention layers
 [x] JIT train_step
 [x] checkpoints
 [x] MLX
-
+look at attention layers
 
 
 collab notebook
