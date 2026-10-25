@@ -2,14 +2,7 @@ import jax.numpy as jnp
 import numpy as np
 from flax import nnx
 
-"""
-Encoder:
-  source self-attention
-
-Decoder:
-  target self-attention
-  target-source cross-attention
-"""
+from transformer.tokenizer import PAD_ID
 
 # --------------------------------------------------------------------------------------------------
 
@@ -23,6 +16,8 @@ def attention(
     mask: jnp.array
 ) -> jnp.array:
     """
+    FIXME: Clean up this docstring.
+
     attention(q, k, v) = softmax[(Q @ K.T) / sqrt(d_k)] @ V
 
     query shape = (query_len, d_k)
@@ -56,6 +51,7 @@ def attention(
 
 def make_src_mask(src):
     """
+    Create source language mask, which simply ignores padding.
     """
     # Attention has shape (B, H, Q, K); add dimensions so that src mask works.
     return (src != PAD_ID)[:, None, None, :]
@@ -63,6 +59,7 @@ def make_src_mask(src):
 
 def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarray:
     """
+    Create target language mask, which ignores paddig and enforces causality.
     """
     # Add new axis to allow broadcasting over n_heads
     causal_mask = make_causal_mask(tgt_input.shape[1])
@@ -71,7 +68,7 @@ def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarr
 
 def make_causal_mask(size: int) -> np.ndarray:
     """
-    Build the mask that enforces causality when decoding.
+    Creates causality-enforcing decoding mask.
     """
     score_shape = (size, size)
     return np.tril(np.ones(score_shape), k=0).astype(bool)
@@ -93,10 +90,6 @@ class MultiheadAttention(nnx.Module):
         self.linear_k = nnx.Linear(model_dim, model_dim, rngs=rngs)
         self.linear_v = nnx.Linear(model_dim, model_dim, rngs=rngs)
         self.linear_out = nnx.Linear(model_dim, model_dim, rngs=rngs)
-
-        heads = {}
-        for i in range(n_heads):
-            pass
 
     def __call__(self, query, key, value, mask):
         """
@@ -281,21 +274,22 @@ class DecoderLayer(nnx.Module):
 
 class Transformer(nnx.Module):
     """
-    Encoder-decoder transformer with multi-head self-attention.
+    Encoder-decoder transformer with multi-headed attention.
     """
 
     def __init__(
         self,
         src_vocab: dict[str, int],
         tgt_vocab: dict[str, int],
-        model_dim: int = 512,
-        ff_dim: int = 2048,
-        n_heads: int = 8,
-        dropout_rate: float = 0.1,
-        n_modules: int = 6,
-        rngs: nnx.Rngs = nnx.Rngs(0),
+        model_dim: int,
+        ff_dim: int,
+        n_heads: int,
+        dropout_rate: float,
+        n_modules: int,
+        rngs: nnx.Rngs,
     ):
         """
+        Initialize transformer submodules.
         """
         self.src_embed = EmbeddingLayer(model_dim, src_vocab, dropout_rate, rngs)
         self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab, dropout_rate, rngs)
@@ -313,22 +307,19 @@ class Transformer(nnx.Module):
 
     def __call__(self, src, tgt, src_mask, tgt_mask):
         """
+        Forward encoding -> decoding pass.
         """
         x = self.encode(src, src_mask)
         x = self.decode(x, src_mask, tgt, tgt_mask)
         return self.output_projection(x)
 
     def encode(self, src, src_mask):
-        """
-        """
         x = self.src_embed(src)
         for encoder_layer in self.encoder_layers:
             x = encoder_layer(x, src_mask)
         return self.encoder_norm(x)
 
     def decode(self, memory, src_mask, tgt, tgt_mask):
-        """
-        """
         x = self.tgt_embed(tgt)
         for decoder_layer in self.decoder_layers:
             x = decoder_layer(x, memory, src_mask, tgt_mask)

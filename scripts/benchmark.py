@@ -1,37 +1,27 @@
 """
-Results on Apple M4 Pro with 24GB:
+Benchmark training the original base transformer. Run with benchmark.sh to run:
+1. CPU vs GPU
+2. Bucketed batches vs not
+3. jax-mps experimental async flag
+
+Results on Apple M4 Pro with 24GB
+---------------------------------
 
 % JAX_PLATFORMS=cpu uv run python scripts/benchmark.py 
-  WITHOUT LENGTH BUCKETING
-  JAX devices: [CpuDevice(id=0)]
-  Compile time: 4.106 sec
-  Average seconds per step: 2.928
-  Average tokens per second: 897.369
-
-  WITH LENGTH BUCKETING
-  JAX devices: [CpuDevice(id=0)]
-  Compile time: 3.312 sec
-  Average seconds per step: 1.864
-  Average tokens per second: 1717.700
+    Average seconds per step: 2.928
+    Average tokens per second: 897.369
 
 % JAX_PLATFORMS=mps uv run python scripts/benchmark.py 
-    WITHOUT BUCKETING
-        JAX devices: [MpsDevice(id=0)]
-        Compile time: 1.507 sec
-        Average seconds per step: 0.654
-        Average tokens per second: 4014.057
+    Average seconds per step: 0.654
+    Average tokens per second: 4014.057
 
-    WITH BUCKETING
-        JAX devices: [MpsDevice(id=0)]
-        Compile time: 1.375 sec
-        Average seconds per step: 0.459
-        Average tokens per second: 6973.377
+% JAX_PLATFORMS=mps uv run python scripts/benchmark.py --bucketing
+    Average seconds per step: 0.459
+    Average tokens per second: 6973.377
 
 % JAX_PLATFORMS=mps JAX_MPS_ASYNC_DISPATCH=1 uv run python scripts/benchmark.py
-  JAX devices: [MpsDevice(id=0)]
-  Compile time: 1.452 sec
-  Average seconds per step: 0.628
-  Average tokens per second: 4182.534
+    Average seconds per step: 0.628
+    Average tokens per second: 4182.534
 """
 
 import argparse
@@ -64,7 +54,7 @@ if __name__ == "__main__":
         cfg=IWSLT_EXPERIMENT.data
     )
     model = build_model(
-        cfg=IWSLT_EXPERIMENT.model,
+        cfg=IWSLT_EXPERIMENT,
         vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
     )
     optimizer = build_optimizer(

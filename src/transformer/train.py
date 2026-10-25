@@ -2,20 +2,22 @@ import optax
 from flax import nnx
 from jax import numpy as jnp
 
-from transformer.model import make_src_mask, make_tgt_mask
+from transformer.model import Transformer, make_src_mask, make_tgt_mask
 from transformer.tokenizer import PAD_ID
 
 # --------------------------------------------------------------------------------------------------
 
 @nnx.jit
-def train_step(model, optimizer, batch) -> jnp.array:
+def train_step(model: Transformer, optimizer: nnx.Optimizer, batch: jnp.ndarray) -> jnp.ndarray:
     """
+    Jitted training step.
     """
     model.train()
 
     src = batch["src"]
     tgt = batch["tgt"]
 
+    # FIXME: Explain teacher forcing.
     tgt_input = tgt[:, :-1]
     tgt_output = tgt[:, 1:]
 
@@ -25,7 +27,6 @@ def train_step(model, optimizer, batch) -> jnp.array:
 
     def loss_fn(model):
         logits = model(src, tgt_input, src_mask, tgt_mask)
-        # FIXME: Explain teacher forcing
         loss = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_output)
         # FIXME: Explain predicting padding
         valid = tgt_output != PAD_ID

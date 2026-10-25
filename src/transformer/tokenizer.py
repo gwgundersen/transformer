@@ -1,9 +1,11 @@
+from collections.abc import Callable
+
 import numpy as np
 from spacy.lang.de import German
 from spacy.lang.en import English
 from spacy.tokenizer import Tokenizer
 
-from transformer.vocab import BOS_ID, EOS_ID, PAD_ID
+from transformer.vocab import BOS_ID, EOS_ID, PAD_ID, UNK_ID
 
 # --------------------------------------------------------------------------------------------------
 
@@ -37,7 +39,8 @@ def _encode(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) -
 
 def encode_example(
     pair: dict,
-    langs: tuple,
+    src_lang: str,
+    tgt_lang: str,
     vocab: dict[str, dict[str, int]],
     max_length: int
 ) -> dict:
@@ -45,11 +48,28 @@ def encode_example(
     Encode a translation pair (src and tgt languages).
     """
     return {
-        lang: _encode(
-            pair["translation"][lang],
-            vocab[lang],
-            LANG_TO_TOKENIZER[lang],
+        "src": _encode(
+            pair["translation"][src_lang],
+            vocab[src_lang],
+            LANG_TO_TOKENIZER[src_lang],
+            max_length,
+        ),
+        "tgt": _encode(
+            pair["translation"][tgt_lang],
+            vocab[tgt_lang],
+            LANG_TO_TOKENIZER[tgt_lang],
             max_length,
         )
-        for lang in langs
     }
+
+
+def get_print_sentence(vocab: dict[str, int]) -> Callable:
+    """
+    Return a function which decode a sentence and then prints it in vocab's language.
+    """
+    id_to_word = {i: w for w, i in vocab.items()}
+
+    def print_sentence(x):
+        print("\t" + " ".join([id_to_word[int(i)] for i in x if i != PAD_ID]))
+
+    return print_sentence

@@ -1,8 +1,7 @@
 import json
-from collections.abc import Callable
+from collections import Counter
 
 from transformer.paths import VOCAB_DIR
-from transformer.tokenizer import LANG_TO_TOKENIZER
 
 # --------------------------------------------------------------------------------------------------
 
@@ -28,33 +27,25 @@ def load_vocab(lang: str) -> dict[str, int]:
         return json.load(f)
 
 
-def build_vocab(lang: str) -> Callable:
+def build_vocab(sentences: list, min_freq: int = 2) -> dict[str, int]:
     """
-    Return partial function to build a word->ID mapping.
+    Return word->ID mapping for the embedding layer.
     """
+    counts = Counter()
+    for sent in sentences:
+        for tok in sent:
+            counts[tok] += 1
 
-    def _build_vocab(data: list) -> dict:
-        """
-        Return word->ID mapping for the embedding layer.
-        """
-        counts = Counter()
-        tokenizer = LANG_TO_TOKENIZER[lang]
-        for example in data:
-            sentence = example["translation"][lang]
-            counts.update([t.text for t in tokenizer(sentence)])
+    special = [PAD_WORD, UNK_WORD, BOS_WORD, EOS_WORD]
+    filtered = [t for t, c in counts.items() if c >= min_freq and t not in special]
+    id_to_word = special + filtered
+    word_to_id = {t: i for i, t in enumerate(id_to_word)}
 
-        special = [PAD_WORD, UNK_WORD, BOS_WORD, EOS_WORD]
-        filtered = [t for t, c in counts.items() if c >= 2 and t not in special]
-        id_to_word = special + filtered
-        word_to_id = {t: i for i, t in enumerate(id_to_word)}
+    # Verify we have built the vocabulary correctly
+    for w, i in zip(special, [PAD_ID, UNK_ID, BOS_ID, EOS_ID]):
+        assert word_to_id[w] == i
+    assert min(word_to_id.values()) == 0
+    assert max(word_to_id.values()) == len(word_to_id) - 1
+    assert set(word_to_id.values()) == set(range(len(word_to_id)))
 
-        # Verify we have built the vocabulary correctly
-        for w, i in zip(special, [PAD_ID, UNK_ID, BOS_ID, EOS_ID]):
-            assert word_to_id[w] == i
-        assert min(word_to_id.values()) == 0
-        assert max(word_to_id.values()) == len(word_to_id) - 1
-        assert set(word_to_id.values()) == set(range(len(word_to_id)))
-
-        return word_to_id
-
-    return _build_vocab
+    return word_to_id

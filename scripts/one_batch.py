@@ -1,5 +1,5 @@
 """
-FIXME: Explain the purpose of this test.
+Overfit the transformer to a single batch, to verify training.
 """
 
 import time
@@ -7,54 +7,59 @@ import time
 import jax
 import numpy as np
 
-from transformer.batches import get_bucketed_batches
-from transformer.config import IWSLT_EXPERIMENT, ONE_BATCH_EXPERIMENT
+from transformer.batches import get_batches
+from transformer.config import ONE_BATCH_EXPERIMENT
+from transformer.decode import greedy_decode
 from transformer.inputs import build_model, build_optimizer, load_data
-from transformer.tokenizer import PAD_ID
+from transformer.model import make_src_mask, make_tgt_mask
+from transformer.tokenizer import get_print_sentence
 from transformer.train import train_step
 
 # --------------------------------------------------------------------------------------------------
 
 BATCH_SIZE = 128
-DECODE_EVERY = 50
+DECODE_EVERY = 10
 
 
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
-    data = load_data(ONE_BATCH_EXPERIMENT.data)
+    data = load_data(
+        cfg=ONE_BATCH_EXPERIMENT.data
+    )
     model = build_model(
-        IWSLT_EXPERIMENT.model,
+        cfg=ONE_BATCH_EXPERIMENT,
         vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
     )
-    optimizer = build_optimizer(ONE_BATCH_EXPERIMENT.train, model)
+    optimizer = build_optimizer(
+        cfg=ONE_BATCH_EXPERIMENT.train,
+        model=model
+    )
 
     rng = np.random.default_rng(seed=0)
-    batches = get_bucketed_batches(
+    batches = get_batches(
         data.src,
         data.tgt,
-        buckets=data.buckets,
-        token_budget=IWSLT_EXPERIMENT.data.token_budget,
+        batch_size=BATCH_SIZE,
         rng=rng,
     )
 
-    batch = {"src": src[:BATCH_SIZE], "tgt": tgt[:BATCH_SIZE]}
+    batch = {"src": data.src[:BATCH_SIZE], "tgt": data.tgt[:BATCH_SIZE]}
     y_true = batch["tgt"][0][:-1]
 
-    # Map English IDs to words to pretty translation.
-    tgt_id_to_word = {i: w for w, i in data.tgt_vocab.items()}
-    def print_sentence(x):
-        print("\t" + " ".join([tgt_id_to_word[int(i)] for i in x if i != PAD_ID]))
+    # Print sentences in target language (English for IWSLT)
+    print_sentence = get_print_sentence(data.tgt_vocab)
 
     losses = []
-    for epoch in range(ONE_BATCH_EXPERIMENT.train.n_epochs):
+    for step in range(200):
 
+        t0 = time.perf_counter()
         loss = train_step(model, optimizer, batch)
         losses.append(loss)
 
         if step % DECODE_EVERY == 0:
 
-            # Force a sync between Python and GPU before computing the time
+            # Force a sync between Python and GPU before computing the time.
             jax.block_until_ready(loss)
             elapsed = time.perf_counter() - t0
             print(f"{step}\t{loss} ({elapsed=:.2f})")
@@ -63,16 +68,14 @@ if __name__ == "__main__":
             tgt = batch["tgt"]
             tgt_input = tgt[:, :-1]
             tgt_output = tgt[:, 1:]
-            src_mask = (src != PAD_ID)[:, None, None, :]
-            size = tgt_input.shape[1]
-            causal_mask = make_causal_mask(size)
-            tgt_mask = (tgt_input != PAD_ID)[:, None, None, :] & causal_mask
+            src_mask = make_src_mask(src)
+            tgt_mask = make_tgt_mask(tgt_input)
 
             y_hat = greedy_decode(
                 model,
                 src=src[:1],
                 src_mask=src_mask[:1],
-                max_length=config.max_length
+                max_length=ONE_BATCH_EXPERIMENT.data.max_length
             )
             print_sentence(y_true)
             print_sentence(y_hat)

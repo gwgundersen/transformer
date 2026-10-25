@@ -1,16 +1,20 @@
+"""
+Train the original base transformer on the IWSLT dataset.
+
+JAX_PLATFORMS=mps uv run python scripts/train.py
+"""
+
 import jax
 import numpy as np
-import optax
-from flax import nnx
 
+from transformer.batches import get_bucketed_batches
 from transformer.checkpoints import save_checkpoint
-from transformer.config import IWSLTConfig
-from transformer.dataset import load_iwslt_en_de
+from transformer.config import IWSLT_EXPERIMENT
 from transformer.decode import greedy_decode
-from transformer.model import Transformer, make_src_mask, make_tgt_mask
-from transformer.tokenizer import PAD_ID, prepare
-from transformer.train import batches, train_step
-from transformer.vocab import load_vocab
+from transformer.inputs import build_model, build_optimizer, load_data
+from transformer.model import make_src_mask, make_tgt_mask
+from transformer.tokenizer import get_print_sentence
+from transformer.train import train_step
 
 # --------------------------------------------------------------------------------------------------
 
@@ -21,54 +25,42 @@ SAVE_EVERY = 1
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
-    data = load_iwslt_en_de()
-    train_data = data["train"]
-
-    vocab_de = load_vocab("de")
-    vocab_en = load_vocab("en")
-    en_id_to_word = {i: w for w, i in vocab_en.items()}
-
-    config = IWSLTConfig()
-
-    model = Transformer(
-        src_vocab=vocab_de,
-        tgt_vocab=vocab_en,
-        dropout_rate=0.0
+    data = load_data(
+        cfg=IWSLT_EXPERIMENT.data
     )
-
-    optimizer = nnx.Optimizer(
-        model,
-        optax.adam(1e-4),
-        wrt=nnx.Param,
+    model = build_model(
+        cfg=IWSLT_EXPERIMENT,
+        vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
     )
-
-    train_data = data["train"].map(
-        prepare,
-        fn_kwargs={"vocab": {"de": vocab_de, "en": vocab_en}, "max_length": config.max_length},
-        remove_columns=data["train"].column_names,
-        load_from_cache_file=True,
+    optimizer = build_optimizer(
+        cfg=IWSLT_EXPERIMENT.train,
+        model=model
     )
-
-    # HuggingFace's API will return a list. Convert to a block of numpy arrays.
-    train_data = train_data.with_format("numpy")
-    src_data = np.asarray(train_data["src"])
-    tgt_data = np.asarray(train_data["tgt"])
-
-    def print_sentence(x):
-        print(" ".join([en_id_to_word[int(i)] for i in x if i != PAD_ID]))
+    print_sentence = get_print_sentence(data.tgt_vocab)
 
     rng = np.random.default_rng(seed=0)
     step = 0
     losses = []
     for epoch in range(1000):
 
-        for batch in batches(src_data, tgt_data, batch_size=BATCH_SIZE, rng=rng):
+        # Bucket and shuffle batches
+        batches = get_bucketed_batches(
+            data.src,
+            data.tgt,
+            buckets=data.buckets,
+            token_budget=IWSLT_EXPERIMENT.data.token_budget,
+            rng=rng,
+        )
+
+        for batch in batches:
             loss = train_step(model, optimizer, batch)
             losses.append(loss)
             step +=1 
         
         if epoch % SAVE_EVERY == 0:
             print(f"{epoch}\t{float(losses[-1]):.4f}")
+
+            # Each checkpoint is ~1GB, so overwrite previous checkpoint
             save_checkpoint(
                 "iwslt",
                 model,
@@ -86,7 +78,7 @@ if __name__ == "__main__":
                 model, 
                 src=batch["src"][:1],
                 src_mask=src_mask[:1],
-                max_length=config.max_length,
+                max_length=IWSLT_EXPERIMENT.data.max_length,
             )
             print_sentence(y_true)
             print_sentence(y_hat)

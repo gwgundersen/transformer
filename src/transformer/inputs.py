@@ -5,7 +5,7 @@ import optax
 from flax import nnx
 
 from transformer.batches import assign_buckets
-from transformer.config import DatasetConfig, ModelConfig, TrainConfig
+from transformer.config import DatasetConfig, ExperimentConfig, ModelConfig, TrainConfig
 from transformer.dataset import DATASETS
 from transformer.model import Transformer
 from transformer.tokenizer import encode_example
@@ -37,7 +37,8 @@ def load_data(cfg: DatasetConfig) -> Data:
     train_data = data["train"].map(
         encode_example,
         fn_kwargs={
-            "langs": (cfg.src_lang, cfg.tgt_lang),
+            "src_lang": cfg.src_lang,
+            "tgt_lang": cfg.tgt_lang,
             "vocab": vocabs,
             "max_length": cfg.max_length
         },
@@ -62,18 +63,19 @@ def load_data(cfg: DatasetConfig) -> Data:
     )
 
 
-def build_model(cfg: ModelConfig, vocabs: dict[str, dict[str, int]]) -> Transformer:
+def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Transformer:
     """
     Build the transformer model using the config and vocabs.
     """
     return Transformer(
         src_vocab=vocabs["src"],
         tgt_vocab=vocabs["tgt"],
-        model_dim=cfg.model_dim,
-        ff_dim=cfg.ff_dim,
-        n_heads=cfg.n_heads,
-        n_modules=cfg.n_modules,
-        dropout_rate=cfg.dropout_rate
+        model_dim=cfg.model.model_dim,
+        ff_dim=cfg.model.ff_dim,
+        n_heads=cfg.model.n_heads,
+        n_modules=cfg.model.n_modules,
+        dropout_rate=cfg.model.dropout_rate
+        rngs=rnn.Rngs(cfg.train.seed)
     )
 
 
