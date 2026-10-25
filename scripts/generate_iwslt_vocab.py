@@ -16,7 +16,7 @@ if __name__ == "__main__":
         tokenize = LANG_TO_TOKENIZER[lang]
         docs = [tokenize(pair["translation"][lang]) for pair in data["train"]]
         # Convert spacy.tokens.doc.Doc into strings
-        sentences = [t.text for t in docs]
+        sentences = [[t.text for t in doc] for doc in docs]
         vocab = build_vocab(sentences)
         with open(VOCAB_DIR / f"{lang}.json", "w") as f:
             json.dump(vocab, f)
