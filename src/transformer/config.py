@@ -23,6 +23,7 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class TrainConfig:
+    seed: int
     learning_rate: float
     batch_size: int
     n_epochs: int
@@ -75,6 +76,7 @@ ONE_BATCH_EXPERIMENT = ExperimentConfig(
         dropout_rate=0,
     ),
     train=TrainConfig(
+        seed=0,
         learning_rate=1e-4,
         batch_size=128,
         n_epochs=100,
@@ -87,6 +89,7 @@ IWSLT_EXPERIMENT = ExperimentConfig(
     data=IWSLT_DATA,
     model=TRANSFORMER_BASE,
     train=TrainConfig(
+        seed=0,
         learning_rate=1e-4,
         batch_size=128,
         n_epochs=100,

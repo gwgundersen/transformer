@@ -24,7 +24,8 @@ class Data:
 
 def load_data(cfg: DatasetConfig) -> Data:
     """
-    Load data, tokenize, cache. Return padded src/tgt pairs.
+    Load dataset and vocabularies, encode the sentences (from strings to tokens to IDs), compute
+    bucket assignments for bucketed batching, and return bundle of metadata.
     """
     # Load 'raw' dataset.
     data = DATASETS[cfg.dataset]()
@@ -74,14 +75,15 @@ def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Tra
         ff_dim=cfg.model.ff_dim,
         n_heads=cfg.model.n_heads,
         n_modules=cfg.model.n_modules,
-        dropout_rate=cfg.model.dropout_rate
-        rngs=rnn.Rngs(cfg.train.seed)
+        dropout_rate=cfg.model.dropout_rate,
+        rngs=nnx.Rngs(cfg.train.seed)
     )
 
 
-# FIXME: Enrich this.
+# FIXME: Allow a richer config, e.g. rate scheduling.
 def build_optimizer(cfg: TrainConfig, model: Transformer) -> nnx.Optimizer:
     """
+    Build optimizer.
     """
     return nnx.Optimizer(
         model,
