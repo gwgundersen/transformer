@@ -11,6 +11,7 @@ macbook locally
 [x] JIT train_step
 [x] checkpoints
 [x] MLX
+[ ] Do full IWSLT training run on Colab
 look at attention layers
 
 
