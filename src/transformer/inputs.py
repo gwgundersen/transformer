@@ -69,8 +69,8 @@ def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Tra
     Build the transformer model using the config and vocabs.
     """
     return Transformer(
-        src_vocab=len(vocabs["src"]),
-        tgt_vocab=len(vocabs["tgt"]),
+        src_vocab_size=len(vocabs["src"]),
+        tgt_vocab_size=len(vocabs["tgt"]),
         model_dim=cfg.model.model_dim,
         ff_dim=cfg.model.ff_dim,
         n_heads=cfg.model.n_heads,
