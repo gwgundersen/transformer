@@ -5,8 +5,10 @@ JAX_PLATFORMS=mps uv run python scripts/train.py
 """
 
 import argparse
-import jax
 import numpy as np
+
+import jax
+from flax import nnx
 
 from transformer.batches import get_bucketed_batches
 from transformer import checkpoints as cp
