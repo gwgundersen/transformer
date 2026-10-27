@@ -57,7 +57,9 @@ if __name__ == "__main__":
         nnx.update(optimizer, state["optimizer"])
         step = int(state["step"])
         # state["epoch"] is the last successful epoch; so increment
-        epoch_start = 1 + int(state["epoch"])
+        epoch_prev = int(state["epoch"])
+        epoch_start = 1 + epoch_prev
+        print(f"Model loaded at epoch={epoch_prev}")
     else:
         step = 0
         epoch_start = 0

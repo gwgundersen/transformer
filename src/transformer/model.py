@@ -183,9 +183,9 @@ def make_positional_encoding(model_dim: int) -> jnp.array:
 # encodings.
 class EmbeddingLayer(nnx.Module):
 
-    def __init__(self, model_dim, vocab, dropout_rate, rngs):
+    def __init__(self, model_dim, vocab_size, dropout_rate, rngs):
         self.dropout = nnx.Dropout(dropout_rate, rngs=rngs)
-        self.embedding = nnx.Embed(num_embeddings=len(vocab), features=model_dim, rngs=rngs)
+        self.embedding = nnx.Embed(num_embeddings=vocab_size, features=model_dim, rngs=rngs)
         self.scale = np.sqrt(model_dim)
         self.pe = make_positional_encoding(model_dim)
 
@@ -279,8 +279,8 @@ class Transformer(nnx.Module):
 
     def __init__(
         self,
-        src_vocab: dict[str, int],
-        tgt_vocab: dict[str, int],
+        src_vocab_size: int,
+        tgt_vocab_size: int,
         model_dim: int,
         ff_dim: int,
         n_heads: int,
@@ -291,8 +291,8 @@ class Transformer(nnx.Module):
         """
         Initialize transformer submodules.
         """
-        self.src_embed = EmbeddingLayer(model_dim, src_vocab, dropout_rate, rngs)
-        self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab, dropout_rate, rngs)
+        self.src_embed = EmbeddingLayer(model_dim, src_vocab_size, dropout_rate, rngs)
+        self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab_size, dropout_rate, rngs)
         self.encoder_layers = nnx.List([
             EncoderLayer(model_dim, ff_dim, n_heads, dropout_rate, rngs)
             for _ in range(n_modules)
