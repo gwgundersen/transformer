@@ -29,9 +29,20 @@ def save_checkpoint(
     ocp.save_async(path, state, overwrite=True)
 
 
-def load_checkpoint(path: str | Path) -> dict:
+def load_checkpoint(
+    path: str | Path,
+    model: Transformer,
+    optimizer: nnx.Optimizer,
+) -> dict:
     """
     Load model and optimizer state.
     """
     path = CHECKPOINT_DIR / path
-    return ocp.load(path)
+    # We need to tell orbax the data layout
+    state = {
+        "model": nnx.state(model),
+        "optimizer": nnx.state(optimizer),
+        "step": jnp.asarray(0),
+        "epoch": jnp.asarray(0),
+    }
+    return ocp.load(path, abstract_state=state)
