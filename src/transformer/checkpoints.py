@@ -13,8 +13,8 @@ def save_checkpoint(
     path: str | Path,
     model: Transformer,
     optimizer: nnx.Optimizer,
-    losses: list,
-    step: int
+    step: int,
+    epoch: int,
 ) -> None:
     """
     Save model and optimizer state at training step `step`.
@@ -23,13 +23,17 @@ def save_checkpoint(
     state = {
         "model": nnx.state(model),
         "optimizer": nnx.state(optimizer),
-        "loss_history": losses,
         "step": jnp.asarray(step),
+        "epoch": jnp.asarray(epoch)
     }
     ocp.save_async(path, state, overwrite=True)
 
 
-def load_checkpoint(path: str | Path) -> dict:
+def load_checkpoint(
+    path: str | Path,
+    model: Transformer,
+    optimizer: nnx.Optimizer,
+) -> dict:
     """
     Load model and optimizer state.
     """
