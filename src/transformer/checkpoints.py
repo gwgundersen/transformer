@@ -29,11 +29,7 @@ def save_checkpoint(
     ocp.save_async(path, state, overwrite=True)
 
 
-def load_checkpoint(
-    path: str | Path,
-    model: Transformer,
-    optimizer: nnx.Optimizer,
-) -> dict:
+def load_checkpoint(path: str | Path) -> dict:
     """
     Load model and optimizer state.
     """
