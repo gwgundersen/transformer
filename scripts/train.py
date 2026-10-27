@@ -47,11 +47,17 @@ if __name__ == "__main__":
         model=model
     )
     if args.resume:
-        state = cp.load_checkpoint(path="iwslt")
+        # FIXME: Make the checkpoint path part of the config?
+        state = cp.load_checkpoint(
+            path="iwslt",
+            model=model,
+            optimizer=optimizer
+        )
         nnx.update(model, state["model"])
         nnx.update(optimizer, state["optimizer"])
         step = int(state["step"])
-        epoch_start = int(state["epoch"])
+        # state["epoch"] is the last successful epoch; so increment
+        epoch_start = 1 + int(state["epoch"])
     else:
         step = 0
         epoch_start = 0
