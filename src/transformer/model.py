@@ -150,11 +150,14 @@ class PositionwiseFeedForward(nnx.Module):
 
 
 """
-PE(pos, 2i)   = sin(pos/10000^{2i/dmodel})
-PE(pos, 2i+1) = cos(pos/10000^{2i/dmodel})
+
 """
 def make_positional_encoding(model_dim: int) -> jnp.array:
     """
+    Make positional encodings, defined as:
+    
+      PE[position, 2i]   = sin(position / 10000^{2i/dmodel})
+      PE[position, 2i+1] = cos(position / 10000^{2i/dmodel})
     """
     # positions has shape (seq_len, 1)
     positions = jnp.arange(MAX_LEN)[:, None]
@@ -303,7 +306,7 @@ class Transformer(nnx.Module):
         ])
         self.encoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
         self.decoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
-        self.output_projection = nnx.Linear(model_dim, len(tgt_vocab), rngs=rngs)
+        self.output_projection = nnx.Linear(model_dim, tgt_vocab_size, rngs=rngs)
 
     def __call__(self, src, tgt, src_mask, tgt_mask):
         """
