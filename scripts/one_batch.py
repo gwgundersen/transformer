@@ -30,13 +30,16 @@ if __name__ == "__main__":
 
     rng = np.random.default_rng(seed=0)
     batches = get_batches(
-        data.src,
-        data.tgt,
+        data.train.src,
+        data.train.tgt,
         batch_size=cfg.train.batch_size,
         rng=rng,
     )
 
-    batch = {"src": data.src[:cfg.train.batch_size], "tgt": data.tgt[:cfg.train.batch_size]}
+    batch = {
+        "src": data.train.src[:cfg.train.batch_size],
+        "tgt": data.train.tgt[:cfg.train.batch_size]
+    }
     y_true = batch["tgt"][0][:-1]
 
     # Print sentences in target language (English for IWSLT)

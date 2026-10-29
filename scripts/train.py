@@ -38,7 +38,6 @@ if __name__ == "__main__":
     optimizer = build_optimizer(cfg=cfg.train, model=model)
 
     if args.resume:
-        # FIXME: Make the checkpoint path part of the config?
         state = cp.load_checkpoint(
             path=cfg.name,
             model=model,
@@ -64,20 +63,22 @@ if __name__ == "__main__":
 
         # Bucket and shuffle batches
         batches = get_bucketed_batches(
-            data.src,
-            data.tgt,
+            data.train.src,
+            data.train.tgt,
             buckets=data.buckets,
             token_budget=cfg.data.token_budget,
             rng=rng,
         )
 
+        losses_epoch = []
         for batch in batches:
             loss = train_step(model, optimizer, batch)
             losses.append(loss)
+            losses_epoch.append(loss)
             step +=1
 
         if epoch % cfg.train.metrics_freq == 0:
-            print(f"{epoch}\t{float(losses[-1]):.4f}")
+            print(f"{epoch}\t{np.mean(losses_epoch):.4f}")
             log_metrics(cfg.name, step, loss)
 
             tgt_input = batch["tgt"][:, :-1]

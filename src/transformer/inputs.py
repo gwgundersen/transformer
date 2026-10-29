@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from datasets import DatasetDict
 import numpy as np
 import optax
 from flax import nnx
@@ -14,12 +15,56 @@ from transformer.vocab import load_vocab
 # --------------------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
-class Data:
+class Split:
     src: np.ndarray
     tgt: np.ndarray
     buckets: np.ndarray
+
+
+@dataclass(frozen=True)
+class Data:
+    train: Split
+    validation: Split
+    test: Split
     src_vocab: dict[str, int]
     tgt_vocab: dict[str, int]
+
+
+def _load_split(
+    ds: DatasetDict,
+    cfg: DatasetConfig,
+    vocabs: dict[str, dict[str, int]],
+    split: str
+) -> Split:
+    """
+    Load a single split (train, validation test) from a given HF dataset dict.
+    """
+    split_data = ds[split].map(
+        encode_example,
+        fn_kwargs={
+            "src_lang": cfg.src_lang,
+            "tgt_lang": cfg.tgt_lang,
+            "vocab": vocabs,
+            "max_length": cfg.max_length
+        },
+        remove_columns=ds[split].column_names,
+        load_from_cache_file=True,
+    )
+
+    # HuggingFace's API will return a list. Convert to numpy arrays.
+    split_data = split_data.with_format("numpy")
+    src = np.asarray(split_data["src"])
+    tgt = np.asarray(split_data["tgt"])
+
+    # Assign each sample to a "bucket" so we can group batches based on sequence length to reduce
+    # padding. 
+    buckets = assign_buckets(src, tgt, cfg.bucket_boundaries)
+
+    return Split(
+        src=src,
+        tgt=tgt,
+        buckets=buckets,
+    )
 
 
 def load_data(cfg: DatasetConfig) -> Data:
@@ -33,32 +78,10 @@ def load_data(cfg: DatasetConfig) -> Data:
     # Load pre-computed vocabularies.
     vocabs = {lang: load_vocab(lang) for lang in (cfg.src_lang, cfg.tgt_lang)}
 
-    # Preprocess training data.
-    # FIXME: Make this train or test set?
-    train_data = data["train"].map(
-        encode_example,
-        fn_kwargs={
-            "src_lang": cfg.src_lang,
-            "tgt_lang": cfg.tgt_lang,
-            "vocab": vocabs,
-            "max_length": cfg.max_length
-        },
-        remove_columns=data["train"].column_names,
-        load_from_cache_file=True,
-    )
-
-    # HuggingFace's API will return a list. Convert to numpy arrays.
-    train_data = train_data.with_format("numpy")
-    src_data = np.asarray(train_data["src"])
-    tgt_data = np.asarray(train_data["tgt"])
-
-    # FIXME. Explain what this is doing here.
-    buckets = assign_buckets(src_data, tgt_data, cfg.bucket_boundaries)
+    splits = {s: _load_split(data, cfg, vocabs, s) for s in ("train", "validation", "test")}
 
     return Data(
-        src=src_data,
-        tgt=tgt_data,
-        buckets=buckets,
+        **splits,
         src_vocab=vocabs[cfg.src_lang],
         tgt_vocab=vocabs[cfg.tgt_lang],
     )
