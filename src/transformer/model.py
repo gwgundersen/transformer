@@ -107,17 +107,19 @@ class MultiheadAttention(nnx.Module):
         key = key.reshape(batch_size, -1, self.n_heads, self.d_k)
         value = value.reshape(batch_size, -1, self.n_heads, self.d_k)
 
-        # FIXME: Explain
+        # query, keys, and values have shape (batch, seq, head, d_k)
+        # after transpose, they have shape (batch, head, seq, d_k)
         query = jnp.transpose(query, (0, 2, 1, 3))
         key = jnp.transpose(key, (0, 2, 1, 3))
         value = jnp.transpose(value, (0, 2, 1, 3))
 
         # Apply attention across the heads in batch, rather than:
         #
-        #     attn = []
+        #     out = []
         #     for _ in range(self.heads):
-        #         attn.append(attention(query, key, value, mask)
-        #.    attn = concat(attn)
+        #.        attn = attention(query, key, value, mask)
+        #         out.append(attn)
+        #.    out = concat(out)
         #
         # One could argue that this operation here is one of a few reasons transformers are so
         # successful. The operations are embarrassingly parallel.
@@ -149,9 +151,6 @@ class PositionwiseFeedForward(nnx.Module):
         return self.w2(x)
 
 
-"""
-
-"""
 def make_positional_encoding(model_dim: int) -> jnp.array:
     """
     Make positional encodings, defined as:
@@ -162,16 +161,16 @@ def make_positional_encoding(model_dim: int) -> jnp.array:
     # positions has shape (seq_len, 1)
     positions = jnp.arange(MAX_LEN)[:, None]
 
-    # i has shape (model_dim // 2,), since duplicated
+    # i is half the size of model_dim, since it is duplicated (odd and even)
     i = jnp.arange(model_dim // 2)
 
-    # scale has shape (model_dim // 2,)
+    # scale is the size of i (model_dim // 2,)
     scale = 1 / jnp.pow(10000.0, (2*i) / model_dim)
 
     # theta has shape (seq_len, model_dim // 2)
     theta = positions * scale
 
-    # fill in pe matrix; Jax arrays are immutable so use at/set
+    # fill in `pe` matrix; Jax arrays are immutable so use `at` and `set`
     pe = jnp.zeros((MAX_LEN, model_dim))
     pe = pe.at[:, 0::2].set(jnp.sin(theta))
     pe = pe.at[:, 1::2].set(jnp.cos(theta))

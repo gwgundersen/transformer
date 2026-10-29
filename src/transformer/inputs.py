@@ -5,7 +5,7 @@ import optax
 from flax import nnx
 
 from transformer.batches import assign_buckets
-from transformer.config import DatasetConfig, ExperimentConfig, ModelConfig, TrainConfig
+from transformer.config import DatasetConfig, ExperimentConfig, TrainConfig
 from transformer.dataset import DATASETS
 from transformer.model import Transformer
 from transformer.tokenizer import encode_example

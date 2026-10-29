@@ -27,12 +27,14 @@ class TrainConfig:
     learning_rate: float
     batch_size: int
     n_epochs: int
+    metrics_freq: int
     checkpoint_freq: int
 
 
 @dataclass(frozen=True)
 class ExperimentConfig:
     name: str
+    description: str
     data: DatasetConfig
     model: ModelConfig
     train: TrainConfig
@@ -66,7 +68,8 @@ TRANSFORMER_BIG = ModelConfig(
 )
 
 ONE_BATCH_EXPERIMENT = ExperimentConfig(
-    name="Verify model overfits to one batch",
+    name="one_batch",
+    description="Verify model overfits to one batch",
     data=IWSLT_DATA,
     model=ModelConfig(
         model_dim=512,
@@ -80,12 +83,14 @@ ONE_BATCH_EXPERIMENT = ExperimentConfig(
         learning_rate=1e-4,
         batch_size=128,
         n_epochs=100,
-        checkpoint_freq=10
+        metrics_freq=1,
+        checkpoint_freq=1
     )
 )
 
 IWSLT_EXPERIMENT = ExperimentConfig(
-    name="Train model on IWSLT 2017 German to English translation task",
+    name="iwslt",
+    description="Train model on IWSLT 2017 German to English translation task",
     data=IWSLT_DATA,
     model=TRANSFORMER_BASE,
     train=TrainConfig(
@@ -93,6 +98,22 @@ IWSLT_EXPERIMENT = ExperimentConfig(
         learning_rate=1e-4,
         batch_size=128,
         n_epochs=100,
-        checkpoint_freq=10
+        metrics_freq=1,
+        checkpoint_freq=1
     )
 )
+
+EXPERIMENT_CONFIGS = [
+    ONE_BATCH_EXPERIMENT,
+    IWSLT_EXPERIMENT,
+]
+
+def load_experiment_config(name: str) -> ExperimentConfig:
+    """
+    Given a string name, return the requested experiment config. Raise if no match.
+    """
+    matches = [c for c in EXPERIMENT_CONFIGS if c.name == name]
+    if len(matches) == 1:
+        return matches[0]
+    else:
+        raise ValueError(f"Experiment config {name} not found")
