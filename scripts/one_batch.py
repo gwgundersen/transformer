@@ -18,7 +18,7 @@ from transformer.train import train_step
 # --------------------------------------------------------------------------------------------------
 
 DECODE_EVERY = 10
-N_STEPS = 50
+N_STEPS = 200
 
 
 if __name__ == "__main__":
