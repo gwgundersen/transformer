@@ -9,9 +9,10 @@ from transformer.vocab import BOS_ID, EOS_ID, PAD_ID, UNK_ID
 
 # --------------------------------------------------------------------------------------------------
 
-LANG_TO_TOKENIZER = {
-    "en": English().tokenizer,
-    "de": German().tokenizer
+TOKENIZERS = {
+    "de": lambda s: [t.text for t in German().tokenizer(t)],
+    "en": lambda s: [t.text for t in English().tokenizer(t)],
+    "char": list
 }
 
 
@@ -20,7 +21,7 @@ def _encode(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) -
     Encode a single sentence using a vocab, tokenizer, and padded to a max length.
     """
     doc = tokenizer(sentence)
-    ids = [vocab.get(t.text, UNK_ID) for t in doc]
+    ids = [vocab.get(t, UNK_ID) for t in doc]
 
     # Reserve two spots for BOS/EOS
     ids = ids[:max_length - 2]
@@ -38,28 +39,17 @@ def _encode(sentence: str, vocab: dict, tokenizer: Tokenizer, max_length: int) -
 
 
 def encode_example(
-    pair: dict,
-    src_lang: str,
-    tgt_lang: str,
+    row: dict,
     vocab: dict[str, dict[str, int]],
-    max_length: int
+    tokenizers: dict[str, str],
+    max_length: int,
 ) -> dict:
     """
     Encode a translation pair (src and tgt languages).
     """
     return {
-        "src": _encode(
-            pair["translation"][src_lang],
-            vocab[src_lang],
-            LANG_TO_TOKENIZER[src_lang],
-            max_length,
-        ),
-        "tgt": _encode(
-            pair["translation"][tgt_lang],
-            vocab[tgt_lang],
-            LANG_TO_TOKENIZER[tgt_lang],
-            max_length,
-        )
+        x: _encode(row[x], vocab[x], TOKENIZERS[tokenizers[x]], max_length)
+        for x in ("src", "tgt")
     }
 
 

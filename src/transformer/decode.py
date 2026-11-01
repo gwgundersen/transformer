@@ -1,12 +1,12 @@
 import jax.numpy as jnp
 
-from transformer.model import Transformer, make_tgt_mask
+from transformer.model import EncoderDecoderTransformer, make_tgt_mask
 from transformer.tokenizer import BOS_ID, EOS_ID
 
 # --------------------------------------------------------------------------------------------------
 
 def greedy_decode(
-    model: Transformer,
+    model: EncoderDecoderTransformer,
     src: jnp.ndarray,
     src_mask: jnp.ndarray,
     max_length: int

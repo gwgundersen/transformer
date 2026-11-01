@@ -203,12 +203,16 @@ class EmbeddingLayer(nnx.Module):
         return self.dropout(x)
 
 
-class EncoderLayer(nnx.Module):
+# This is used in encoding, but I give it the generic name `Block` (following NanoGPT) for parallelism
+# with `CrossBlock`. `CrossBlock` is used in the decoder in the original transformer but is also used
+# in the decoder-only transformer, hence the generic names.
+class Block(nnx.Module):
 
     def __init__(
         self, model_dim: int, ff_dim: int, n_heads: int, dropout_rate: float, rngs: nnx.Rngs
     ):
         """
+        Initialize a layer which does self-attention + feedforward neural network.
         """
         self.norm1 = nnx.LayerNorm(model_dim, rngs=rngs)
         self.norm2 = nnx.LayerNorm(model_dim, rngs=rngs)
@@ -235,12 +239,13 @@ class EncoderLayer(nnx.Module):
         return x
 
 
-class DecoderLayer(nnx.Module):
+class CrossBlock(nnx.Module):
 
     def __init__(
         self, model_dim: int, ff_dim: int, n_heads: int, dropout_rate: float, rngs: nnx.Rngs
     ):
         """
+        Initialize a layer which does self-attention + cross-attention + feedforward neural network.
         """
         self.norm1 = nnx.LayerNorm(model_dim, rngs=rngs)
         self.norm2 = nnx.LayerNorm(model_dim, rngs=rngs)
@@ -254,7 +259,6 @@ class DecoderLayer(nnx.Module):
 
     def __call__(self, x, encoder_output, src_mask, tgt_mask):
         """
-        x has shape (batch_dim, seq_len-1, model_dim)
         """
         residual = x
         x = self.norm1(x)
@@ -274,7 +278,7 @@ class DecoderLayer(nnx.Module):
         return x
 
 
-class Transformer(nnx.Module):
+class EncoderDecoderTransformer(nnx.Module):
     """
     Encoder-decoder transformer with multi-headed attention.
     """
@@ -291,18 +295,13 @@ class Transformer(nnx.Module):
         rngs: nnx.Rngs,
     ):
         """
-        Initialize transformer submodules.
+        Initialize transformer.
         """
         self.src_embed = EmbeddingLayer(model_dim, src_vocab_size, dropout_rate, rngs)
         self.tgt_embed = EmbeddingLayer(model_dim, tgt_vocab_size, dropout_rate, rngs)
-        self.encoder_layers = nnx.List([
-            EncoderLayer(model_dim, ff_dim, n_heads, dropout_rate, rngs)
-            for _ in range(n_modules)
-        ])
-        self.decoder_layers = nnx.List([
-            DecoderLayer(model_dim, ff_dim, n_heads, dropout_rate, rngs)
-            for _ in range(n_modules)
-        ])
+        block_args = (model_dim, ff_dim, n_heads, dropout_rate, rngs,)
+        self.encoder_layers = nnx.List([Block(*block_args) for _ in range(n_modules)])
+        self.decoder_layers = nnx.List([CrossBlock(*block_args) for _ in range(n_modules)])
         self.encoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
         self.decoder_norm = nnx.LayerNorm(model_dim, rngs=rngs)
         self.output_projection = nnx.Linear(model_dim, tgt_vocab_size, rngs=rngs)
@@ -326,3 +325,43 @@ class Transformer(nnx.Module):
         for decoder_layer in self.decoder_layers:
             x = decoder_layer(x, memory, src_mask, tgt_mask)
         return self.decoder_norm(x)
+
+
+class DecoderOnlyTransformer(nnx.Module):
+    """
+    Decoder-only (GPT-style) transformer with multi-headed attention.
+    """
+
+    def __init__(
+        self,
+        vocab_size: int,
+        model_dim: int,
+        ff_dim: int,
+        n_heads: int,
+        dropout_rate: float,
+        n_modules: int,
+        rngs: nnx.Rngs,
+    ):
+        """
+        Initialize transformer.
+        """
+        self.embed = EmbeddingLayer(model_dim, vocab_size, dropout_rate, rngs)
+        # Block-only layers because there isn't anything to cross-attention against.
+        block_args = (model_dim, ff_dim, n_heads, dropout_rate, rngs,)
+        self.layers = nnx.List([Block(*block_args) for _ in range(n_modules)])
+        self.norm = nnx.LayerNorm(model_dim, rngs=rngs)
+        self.output_projection = nnx.Linear(model_dim, vocab_size, rngs=rngs)
+
+    def __call__(self, x, mask):
+        """
+        Decoder-only forward pass.
+        """
+        x = self.embed(x)
+        for layer in self.layers:
+            x = layer(x, mask)
+        x = self.norm(x)
+        return self.output_projection(x)
+
+
+# Useful for type hints
+Model = EncoderDecoderTransformer | DecoderOnlyTransformer

@@ -6,9 +6,11 @@ import optax
 from flax import nnx
 
 from transformer.batches import assign_buckets
-from transformer.config import DatasetConfig, ExperimentConfig, TrainConfig
+from transformer.config import (
+    DecoderOnlyConfig, EncoderDecoderConfig, DatasetConfig, ExperimentConfig, TrainConfig
+)
 from transformer.dataset import DATASETS
-from transformer.model import Transformer
+from transformer.model import DecoderOnlyTransformer, EncoderDecoderTransformer, Model
 from transformer.tokenizer import encode_example
 from transformer.vocab import load_vocab
 
@@ -26,8 +28,7 @@ class Data:
     train: Split
     validation: Split
     test: Split
-    src_vocab: dict[str, int]
-    tgt_vocab: dict[str, int]
+    vocabs: dict[str, dict[str, int]]
 
 
 def _load_split(
@@ -42,10 +43,12 @@ def _load_split(
     split_data = ds[split].map(
         encode_example,
         fn_kwargs={
-            "src_lang": cfg.src_lang,
-            "tgt_lang": cfg.tgt_lang,
             "vocab": vocabs,
-            "max_length": cfg.max_length
+            "tokenizers":  {
+                "src": cfg.src_tokenizer,
+                "tgt": cfg.tgt_tokenizer
+            },
+            "max_length": cfg.max_length,
         },
         remove_columns=ds[split].column_names,
         load_from_cache_file=True,
@@ -58,7 +61,10 @@ def _load_split(
 
     # Assign each sample to a "bucket" so we can group batches based on sequence length to reduce
     # padding. 
-    buckets = assign_buckets(src, tgt, cfg.bucket_boundaries)
+    if cfg.bucket_boundaries:
+        buckets = assign_buckets(src, tgt, cfg.bucket_boundaries)
+    else:
+        buckets = None
 
     return Split(
         src=src,
@@ -73,38 +79,55 @@ def load_data(cfg: DatasetConfig) -> Data:
     bucket assignments for bucketed batching, and return bundle of metadata.
     """
     # Load 'raw' dataset.
-    data = DATASETS[cfg.dataset]()
+    name = cfg.dataset
+    data = DATASETS[name]()
 
     # Load pre-computed vocabularies.
-    vocabs = {lang: load_vocab(lang) for lang in (cfg.src_lang, cfg.tgt_lang)}
+    vocabs = {
+        "src": load_vocab(cfg.src_vocab),
+        "tgt": load_vocab(cfg.tgt_vocab)
+    }
 
-    splits = {s: _load_split(data, cfg, vocabs, s) for s in ("train", "validation", "test")}
+    # Load and process each dataset split.
+    splits = {
+        s: _load_split(data, cfg, vocabs, s)
+        for s in ("train", "validation", "test")
+    }
+    return Data(**splits, vocabs=vocabs)
 
-    return Data(
-        **splits,
-        src_vocab=vocabs[cfg.src_lang],
-        tgt_vocab=vocabs[cfg.tgt_lang],
-    )
 
-
-def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Transformer:
+def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Model:
     """
     Build the transformer model using the config and vocabs.
     """
-    return Transformer(
-        src_vocab_size=len(vocabs["src"]),
-        tgt_vocab_size=len(vocabs["tgt"]),
-        model_dim=cfg.model.model_dim,
-        ff_dim=cfg.model.ff_dim,
-        n_heads=cfg.model.n_heads,
-        n_modules=cfg.model.n_modules,
-        dropout_rate=cfg.model.dropout_rate,
-        rngs=nnx.Rngs(cfg.train.seed)
-    )
+    if isinstance(cfg.model, EncoderDecoderConfig):
+        return EncoderDecoderTransformer(
+            src_vocab_size=len(vocabs["src"]),
+            tgt_vocab_size=len(vocabs["tgt"]),
+            model_dim=cfg.model.model_dim,
+            ff_dim=cfg.model.ff_dim,
+            n_heads=cfg.model.n_heads,
+            n_modules=cfg.model.n_modules,
+            dropout_rate=cfg.model.dropout_rate,
+            rngs=nnx.Rngs(cfg.train.seed)
+        )
+    elif isinstance(cfg.model, DecoderOnlyConfig):
+        return DecoderOnlyTransformer(
+            # src and tgt share a vocabulary in decoder-only experiments
+            vocab_size=len(vocabs["src"]),
+            model_dim=cfg.model.model_dim,
+            ff_dim=cfg.model.ff_dim,
+            n_heads=cfg.model.n_heads,
+            n_modules=cfg.model.n_modules,
+            dropout_rate=cfg.model.dropout_rate,
+            rngs=nnx.Rngs(cfg.train.seed)
+        )
+    else:
+        raise ValueError(f"Unknown config type {type(cfg.model)}")
 
 
 # FIXME: Allow a richer config, e.g. rate scheduling.
-def build_optimizer(cfg: TrainConfig, model: Transformer) -> nnx.Optimizer:
+def build_optimizer(cfg: TrainConfig, model: Model) -> nnx.Optimizer:
     """
     Build optimizer.
     """

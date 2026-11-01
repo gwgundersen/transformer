@@ -25,7 +25,7 @@ if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
     data = load_data(cfg=cfg.data)
-    model = build_model(cfg=cfg, vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab})
+    model = build_model(cfg=cfg, vocabs=data.vocabs)
     optimizer = build_optimizer(cfg=cfg.train, model=model)
 
     rng = np.random.default_rng(seed=0)
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     y_true = batch["tgt"][0][:-1]
 
     # Print sentences in target language (English for IWSLT)
-    print_sentence = get_print_sentence(data.tgt_vocab)
+    print_sentence = get_print_sentence(data.vocabs["tgt"])
 
     losses = []
     for step in range(N_STEPS):

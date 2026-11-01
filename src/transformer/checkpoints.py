@@ -5,14 +5,14 @@ from flax import nnx
 from jax import numpy as jnp
 from orbax.checkpoint import v1 as ocp
 
-from transformer.model import Transformer
+from transformer.model import Model
 from transformer.paths import CHECKPOINT_DIR
 
 # --------------------------------------------------------------------------------------------------
 
 def save_checkpoint(
     name: str | Path,
-    model: Transformer,
+    model: Model,
     optimizer: nnx.Optimizer,
     step: int,
     epoch: int,
@@ -42,7 +42,7 @@ def save_checkpoint(
 
 def load_checkpoint(
     path: str | Path,
-    model: Transformer,
+    model: Model,
     optimizer: nnx.Optimizer,
 ) -> dict:
     """

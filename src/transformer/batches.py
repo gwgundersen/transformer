@@ -1,23 +1,18 @@
 import numpy as np
+from typing import Iterator
 
 from transformer.tokenizer import PAD_ID
 
 # --------------------------------------------------------------------------------------------------
-
-# FIXME: Configure?
-BUCKET_BOUNDARIES = [16, 24, 32, 48, 64, 128]
-# FIXME: How do people choose this?
-TOKEN_BUDGET = 4096
-BATCH_SIZES = {l: TOKEN_BUDGET // l for l in BUCKET_BOUNDARIES}
-
 
 def get_batches(
     src: np.ndarray,
     tgt: np.ndarray,
     batch_size: int,
     rng: np.random.Generator
-) -> dict:
+) -> Iterator:
     """
+    Yield shuffled batches of paired src/tgt examples.
     """
     batches = []
     perm = rng.permutation(len(src))
@@ -40,8 +35,9 @@ def get_bucketed_batches(
     buckets: np.ndarray,
     token_budget: int,
     rng: np.random.Generator
-) -> list:
+) -> Iterator:
     """
+    Yield shuffled batches of paired src/tgt examples, bucketed by sequence length.
     """
     # For each bucket, shuffle the available indices and build the batches
     batches = []
@@ -65,7 +61,11 @@ def get_bucketed_batches(
         }
 
 
-def assign_buckets(src_data: np.ndarray, tgt_data: np.ndarray, bucket_boundaries: tuple) -> np.ndarray:
+def assign_buckets(
+    src_data: np.ndarray,
+    tgt_data: np.ndarray,
+    bucket_boundaries: tuple
+) -> np.ndarray:
     """
     """
     n = len(src_data)

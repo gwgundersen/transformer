@@ -11,7 +11,7 @@ import numpy as np
 from flax import nnx
 
 from transformer import checkpoints as cp
-from transformer.batches import get_bucketed_batches
+from transformer.batches import get_batches, get_bucketed_batches
 from transformer.config import load_experiment_config
 from transformer.decode import greedy_decode
 from transformer.inputs import build_model, build_optimizer, load_data
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     # Load the experiment config and then model and optimizer.
     cfg = load_experiment_config(args.experiment)
     data = load_data(cfg=cfg.data)
-    model = build_model(cfg=cfg, vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab})
+    model = build_model(cfg=cfg, vocabs=data.vocabs)
     optimizer = build_optimizer(cfg=cfg.train, model=model)
 
     if args.resume:
@@ -54,7 +54,7 @@ if __name__ == "__main__":
         step = 0
         epoch_start = 0
 
-    print_sentence = get_print_sentence(data.tgt_vocab)
+    print_sentence = get_print_sentence(data.vocabs["tgt"])
 
     losses = []
     for epoch in range(epoch_start, cfg.train.n_epochs):
@@ -62,13 +62,21 @@ if __name__ == "__main__":
         rng = np.random.default_rng([cfg.train.seed, epoch])
 
         # Bucket and shuffle batches
-        batches = get_bucketed_batches(
-            data.train.src,
-            data.train.tgt,
-            buckets=data.train.buckets,
-            token_budget=cfg.data.token_budget,
-            rng=rng,
-        )
+        if data.train.buckets:
+            batches = get_bucketed_batches(
+                data.train.src,
+                data.train.tgt,
+                buckets=data.train.buckets,
+                token_budget=cfg.data.token_budget,
+                rng=rng,
+            )
+        else:
+            batches = get_batches(
+                data.train.src,
+                data.train.tgt,
+                batch_size=cfg.train.batch_size,
+                rng=rng,
+            )
 
         losses_epoch = []
         for batch in batches:

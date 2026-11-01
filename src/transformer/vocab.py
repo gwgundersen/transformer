@@ -5,11 +5,10 @@ from transformer.paths import VOCAB_DIR
 
 # --------------------------------------------------------------------------------------------------
 
-# FIXME: Explain why we need BOS/EOS
+BOS_WORD = "<s>"  # Give the model something to condition off-of to start the sequence
+EOS_WORD = "</s>"  # Give the model something to generate in order to terminate the sequence
 PAD_WORD = "<blank>"
 UNK_WORD = "<unk>"
-BOS_WORD = "<s>"
-EOS_WORD = "</s>"
 
 PAD_ID = 0
 UNK_ID = 1
@@ -17,12 +16,11 @@ BOS_ID = 2
 EOS_ID = 3
 
 
-# FIXME: `load_vocab` should work for a path as well. For now, accept either "en" or "de".
-def load_vocab(lang: str) -> dict[str, int]:
+def load_vocab(name: str) -> dict[str, int]:
     """
     Return pre-computed vocabulary mapping words to IDs.
     """
-    path = VOCAB_DIR / f"{lang}.json"
+    path = (VOCAB_DIR / name).with_suffix(".json")
     with open(path) as f:
         return json.load(f)
 
