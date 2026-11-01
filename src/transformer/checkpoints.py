@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 
 from flax import nnx
 from jax import numpy as jnp
@@ -10,7 +11,7 @@ from transformer.paths import CHECKPOINT_DIR
 # --------------------------------------------------------------------------------------------------
 
 def save_checkpoint(
-    path: str | Path,
+    name: str | Path,
     model: Transformer,
     optimizer: nnx.Optimizer,
     step: int,
@@ -19,14 +20,24 @@ def save_checkpoint(
     """
     Save model and optimizer state at training step `step`.
     """
-    path = CHECKPOINT_DIR / path
+    path = CHECKPOINT_DIR / name
+    backup = CHECKPOINT_DIR / "backup"
+
+    # If a checkpoint already exists, cache it in case the next save fails
+    if path.exists():
+        if backup.exists():
+            shutil.rmtree(backup)
+        path.rename(backup)
+
     state = {
         "model": nnx.state(model),
         "optimizer": nnx.state(optimizer),
         "step": jnp.asarray(step),
         "epoch": jnp.asarray(epoch)
     }
-    ocp.save_async(path, state, overwrite=True)
+
+    # Blocking save. Async is faster, but then we have to handle edge cases
+    ocp.save(path, state)
 
 
 def load_checkpoint(

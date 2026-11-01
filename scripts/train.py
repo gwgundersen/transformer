@@ -98,7 +98,7 @@ if __name__ == "__main__":
         if epoch % cfg.train.checkpoint_freq == 0:
             # Each checkpoint is ~1GB, so overwrite previous checkpoint
             cp.save_checkpoint(
-                path=cfg.name,
+                name=cfg.name,
                 model=model,
                 optimizer=optimizer,
                 step=step,
