@@ -65,7 +65,7 @@ if __name__ == "__main__":
         batches = get_bucketed_batches(
             data.train.src,
             data.train.tgt,
-            buckets=cfg.data.buckets,
+            buckets=data.train.buckets,
             token_budget=cfg.data.token_budget,
             rng=rng,
         )
