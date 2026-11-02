@@ -1,13 +1,17 @@
 from dataclasses import dataclass
 
-from datasets import DatasetDict
 import numpy as np
 import optax
+from datasets import DatasetDict
 from flax import nnx
 
 from transformer.batches import assign_buckets
 from transformer.config import (
-    DecoderOnlyConfig, EncoderDecoderConfig, DatasetConfig, ExperimentConfig, TrainConfig
+    DatasetConfig,
+    DecoderOnlyConfig,
+    EncoderDecoderConfig,
+    ExperimentConfig,
+    TrainConfig,
 )
 from transformer.dataset import DATASETS
 from transformer.model import DecoderOnlyTransformer, EncoderDecoderTransformer, Model

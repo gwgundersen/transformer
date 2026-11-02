@@ -1,4 +1,3 @@
-import numpy as np
 from pathlib import Path
 
 from datasets import DatasetDict, load_dataset, load_from_disk

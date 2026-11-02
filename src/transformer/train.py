@@ -1,10 +1,14 @@
 import optax
 from flax import nnx
-from jax import Array, numpy as jnp
+from jax import Array
 from jax.typing import ArrayLike
 
 from transformer.model import (
-    DecoderOnlyTransformer, EncoderDecoderTransformer, Model, make_src_mask, make_tgt_mask
+    DecoderOnlyTransformer,
+    EncoderDecoderTransformer,
+    Model,
+    make_src_mask,
+    make_tgt_mask,
 )
 from transformer.tokenizer import PAD_ID
 

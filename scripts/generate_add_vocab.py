@@ -4,7 +4,6 @@ from transformer.dataset import generate_add_dataset
 from transformer.paths import VOCAB_DIR
 from transformer.vocab import build_vocab
 
-
 # --------------------------------------------------------------------------------------------------
 
 if __name__ == "__main__":

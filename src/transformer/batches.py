@@ -1,5 +1,6 @@
+from collections.abc import Iterator
+
 import numpy as np
-from typing import Iterator
 
 from transformer.tokenizer import PAD_ID
 
