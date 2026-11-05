@@ -15,7 +15,7 @@ from transformer.config import (
 )
 from transformer.dataset import DATASETS
 from transformer.model import DecoderOnlyTransformer, EncoderDecoderTransformer, Model
-from transformer.tokenizer import encode_example
+from transformer.tokenizer import BOS_ID, EOS_ID, PAD_ID, encode_example
 from transformer.vocab import load_vocab
 
 # --------------------------------------------------------------------------------------------------
@@ -24,7 +24,9 @@ from transformer.vocab import load_vocab
 class Split:
     src: np.ndarray
     tgt: np.ndarray
-    buckets: np.ndarray
+    buckets: np.ndarray | None
+    seq: np.ndarray | None
+    is_tgt: np.ndarray | None
 
 
 @dataclass(frozen=True)
@@ -35,11 +37,35 @@ class Data:
     vocabs: dict[str, dict[str, int]]
 
 
+def load_data(cfg: DatasetConfig, decoder_only: bool) -> Data:
+    """
+    Load dataset and vocabularies, encode the sentences (from strings to tokens to IDs), compute
+    bucket assignments for bucketed batching, and return bundle of metadata.
+    """
+    # Load 'raw' dataset.
+    name = cfg.dataset
+    data = DATASETS[name]()
+
+    # Load pre-computed vocabularies.
+    vocabs = {
+        "src": load_vocab(cfg.src_vocab),
+        "tgt": load_vocab(cfg.tgt_vocab)
+    }
+
+    # Load and process each dataset split.
+    splits = {
+        split: _load_split(data, cfg, vocabs, decoder_only, split)
+        for split in ("train", "validation", "test")
+    }
+    return Data(**splits, vocabs=vocabs)
+
+
 def _load_split(
     ds: DatasetDict,
     cfg: DatasetConfig,
     vocabs: dict[str, dict[str, int]],
-    split: str
+    decoder_only: bool,
+    split: str,
 ) -> Split:
     """
     Load a single split (train, validation test) from a given HF dataset dict.
@@ -70,34 +96,57 @@ def _load_split(
     else:
         buckets = None
 
+    if decoder_only:
+        seq, is_tgt = _join_src_tgt(src, tgt, cfg.max_length)
+    else:
+        seq, is_tgt = None, None
+
     return Split(
         src=src,
         tgt=tgt,
+        seq=seq,
+        is_tgt=is_tgt,
         buckets=buckets,
     )
 
 
-def load_data(cfg: DatasetConfig) -> Data:
+def _join_src_tgt(
+    src: np.ndarray,
+    tgt: np.ndarray,
+    max_length: int
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    Load dataset and vocabularies, encode the sentences (from strings to tokens to IDs), compute
-    bucket assignments for bucketed batching, and return bundle of metadata.
+    Join encoded src/tgt pairs into a single sequence for decoder-only training.
     """
-    # Load 'raw' dataset.
-    name = cfg.dataset
-    data = DATASETS[name]()
+    # return seq and is_tgt
+    assert src.shape[1] == max_length
+    assert tgt.shape[1] == max_length
 
-    # Load pre-computed vocabularies.
-    vocabs = {
-        "src": load_vocab(cfg.src_vocab),
-        "tgt": load_vocab(cfg.tgt_vocab)
-    }
+    seqs = np.full(src.shape, PAD_ID)
+    masks = np.full(src.shape, False)
+    n_samples = len(src)
 
-    # Load and process each dataset split.
-    splits = {
-        s: _load_split(data, cfg, vocabs, s)
-        for s in ("train", "validation", "test")
-    }
-    return Data(**splits, vocabs=vocabs)
+    for i in range(n_samples):
+
+        # Remove padding and end-of-seq ID
+        s = src[i][src[i] != PAD_ID]
+        assert s[-1] == EOS_ID
+        s = s[:-1]
+
+        # Remove padding and start-of-seq ID
+        t = tgt[i][tgt[i] != PAD_ID]
+        assert s[0] == BOS_ID
+        t = t[1:]
+
+        seq = np.concatenate([s, t])
+        assert seq[0] == BOS_ID
+        assert seq[-1] == EOS_ID
+
+        seqs[i, :len(seq)] = seq
+        # Mask-in only the target sequence. Used in computing the loss.
+        masks[i, len(s):len(seq)] = True
+
+    return seqs, masks
 
 
 def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Model:
@@ -130,7 +179,7 @@ def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Mod
         raise ValueError(f"Unknown config type {type(cfg.model)}")
 
 
-# FIXME: Allow a richer config, e.g. rate scheduling.
+# FIXME: Allow a richer config, e.g. with learning rate scheduling.
 def build_optimizer(cfg: TrainConfig, model: Model) -> nnx.Optimizer:
     """
     Build optimizer.

@@ -35,7 +35,7 @@ def compute_loss(model: Model, batch: dict[str, ArrayLike]) -> tuple[Array, Arra
     Wrapper loss function for both encoder-decoders and decoder-only models.
     """
     if isinstance(model, DecoderOnlyTransformer):
-        return _decoder_only_loss(model, batch["tgt"])
+        return _decoder_only_loss(model, batch["seq"], batch["is_tgt"])
     elif isinstance(model, EncoderDecoderTransformer):
         return _encoder_decoder_loss(model, batch["src"], batch["tgt"])
 
@@ -58,34 +58,37 @@ def _encoder_decoder_loss(
     # Compute raw logits.
     logits = model(src, tgt_input, src_mask, tgt_mask)
 
-    # Compute cross-entropy loss.
+    # Compute cross-entropy loss:
+    #
+    #   logits shape     == (batch, seq, vocab)
+    #   tgt_output shape == (batch, seq)
+    #   loss shape       == (batch, seq)
+    #
+    # This loss function applies log softmax to the vocab scores, turning them into log probs
     loss = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_output)
 
-    # FIXME: Is this right? Should the model output padding?
+    # Don't count mistakes where there's just padding
     valid = tgt_output != PAD_ID
     return (loss * valid).sum(), valid.sum()
 
 
 def _decoder_only_loss(
     model: DecoderOnlyTransformer,
-    tgt: ArrayLike
+    seq: ArrayLike,
+    is_tgt: ArrayLike
 ) -> tuple[Array, Array]:
     """
     """
-    # Teacher-forcing, target only.
-    tgt_input = tgt[:, :-1]
-    tgt_output = tgt[:, 1:]
-    import ipdb; ipdb.set_trace()
-
-    # Padding + causal mask.
-    tgt_mask = make_tgt_mask(tgt_input)
+    seq_input = seq[:, :-1]
+    seq_output = seq[:, 1:]
+    seq_mask = make_tgt_mask(seq_input)
 
     # Compute raw logits.
-    logits = model(tgt_input, tgt_mask)
+    logits = model(seq_input, seq_mask)
 
     # Compute cross-entropy loss.
-    loss = optax.softmax_cross_entropy_with_integer_labels(logits, tgt_output)
+    loss = optax.softmax_cross_entropy_with_integer_labels(logits, seq_output)
 
-    # FIXME: What should this be?
-    valid = tgt_output != PAD_ID
+    # Remove BOS because unneeded and aligns with seq_output shape
+    valid = is_tgt[:, 1:]
     return (loss * valid).sum(), valid.sum()

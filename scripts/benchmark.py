@@ -46,21 +46,14 @@ BENCHMARK_STEPS = 100
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
+    cfg = IWSLT_EXPERIMENT
     parser = argparse.ArgumentParser()
     parser.add_argument("--bucketing", action="store_true")
     args = parser.parse_args()
 
-    data = load_data(
-        cfg=IWSLT_EXPERIMENT.data
-    )
-    model = build_model(
-        cfg=IWSLT_EXPERIMENT,
-        vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab}
-    )
-    optimizer = build_optimizer(
-        cfg=IWSLT_EXPERIMENT.train,
-        model=model
-    )
+    data = load_data(cfg=.data, decoder_only=isinstance(cfg.model, DecoderOnlyConfig)))
+    model = build_model(cfg=cfg, vocabs={"src": data.src_vocab, "tgt": data.tgt_vocab})
+    optimizer = build_optimizer(cfg=cfg.train, model=model)
 
     rng = np.random.default_rng(seed=0)
     if args.bucketing:
@@ -69,7 +62,7 @@ if __name__ == "__main__":
             data.src,
             data.tgt,
             buckets=data.buckets,
-            token_budget=IWSLT_EXPERIMENT.data.token_budget,
+            token_budget=cfg.data.token_budget,
             rng=rng,
         )
     else:
@@ -77,7 +70,7 @@ if __name__ == "__main__":
         batches = get_batches(
             data.src,
             data.tgt,
-            batch_size=IWSLT_EXPERIMENT.train.batch_size,
+            batch_size=cfg.train.batch_size,
             rng=rng,
         )
 
@@ -94,7 +87,7 @@ if __name__ == "__main__":
     # Phase 2: Run the warmup for WARMUP_STEPS-1 steps. Allow memory allocaiton and caches, etc.
     # to settle a bit (hand-wavy, but I think this is what is happening).
     if args.bucketing:
-        for l in IWSLT_EXPERIMENT.data.bucket_boundaries:
+        for l in cfg.data.bucket_boundaries:
             # Obviously slow.
             batch = next(b for b in batches if b["src"].shape[1] == l)
             train_step(model, optimizer, batch)

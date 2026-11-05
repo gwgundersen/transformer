@@ -53,13 +53,14 @@ def encode_example(
     }
 
 
-def get_print_sentence(vocab: dict[str, int]) -> Callable:
+def get_print_seq(vocab: dict[str, int]) -> Callable:
     """
-    Return a function which decode a sentence and then prints it in vocab's language.
+    Return a function which decodes a sequence and then prints it.
     """
     id_to_word = {i: w for w, i in vocab.items()}
 
-    def print_sentence(x):
+    def print_seq(x):
+        x = x.squeeze()
         print("\t" + " ".join([id_to_word[int(i)] for i in x if i != PAD_ID]))
 
-    return print_sentence
+    return print_seq

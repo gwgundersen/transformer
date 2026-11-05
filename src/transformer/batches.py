@@ -7,8 +7,7 @@ from transformer.tokenizer import PAD_ID
 # --------------------------------------------------------------------------------------------------
 
 def get_batches(
-    src: np.ndarray,
-    tgt: np.ndarray,
+    arrays: dict[str, np.ndarray],
     batch_size: int,
     rng: np.random.Generator
 ) -> Iterator:
@@ -16,23 +15,25 @@ def get_batches(
     Yield shuffled batches of paired src/tgt examples.
     """
     batches = []
-    perm = rng.permutation(len(src))
-    for start in range(0, len(src), batch_size):
+    field = list(arrays.keys())[0]
+    arr = arrays[field]
+
+    # Sanity check
+    assert np.all([arr.shape == v.shape for v in arrays.values()])
+
+    perm = rng.permutation(len(arr))
+    for start in range(0, len(arr), batch_size):
         inds = perm[start:start + batch_size]
         # Only return batches with the same size:
         # 1. Avoids an extra JAX compile
         # 2. Loss computation is over same number of samples
         if len(inds) < batch_size:
             return
-        yield {
-            "src": src[inds],
-            "tgt": tgt[inds]
-        }
+        yield {k: v[inds] for k, v in arrays.items()}
 
 
 def get_bucketed_batches(
-    src: np.ndarray,
-    tgt: np.ndarray,
+    arrays: dict[str, np.ndarray],
     buckets: np.ndarray,
     token_budget: int,
     rng: np.random.Generator
@@ -56,10 +57,7 @@ def get_bucketed_batches(
     perm = rng.permutation(len(batches))
     for i in perm:
         l, inds = batches[i]
-        yield {
-            "src": src[inds, :l],
-            "tgt": tgt[inds, :l]
-        }
+        yield {k: v[inds, :l] for k, v in arrays.items()}
 
 
 def assign_buckets(

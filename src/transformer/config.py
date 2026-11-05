@@ -64,7 +64,7 @@ IWSLT_DATA = DatasetConfig(
     token_budget=4096
 )
 
-ADD_3D_DATA = DatasetConfig(
+ADD3D_DATA = DatasetConfig(
     dataset="add-3d",
     src_vocab="add",
     tgt_vocab="add",
@@ -145,10 +145,10 @@ IWSLT_EXPERIMENT = ExperimentConfig(
     )
 )
 
-ADD_3D_EXPERIMENT = ExperimentConfig(
+ADD3D_EXPERIMENT = ExperimentConfig(
     name="add-3d",
     description="Train ~10M transformer to do up-to-3-digit addition",
-    data=ADD_3D_DATA,
+    data=ADD3D_DATA,
     model=TRANSFORMER_DECODER_SMALL,
     train=TrainConfig(
         seed=0,
@@ -163,7 +163,7 @@ ADD_3D_EXPERIMENT = ExperimentConfig(
 EXPERIMENT_CONFIGS = [
     ONE_BATCH_EXPERIMENT,
     IWSLT_EXPERIMENT,
-    ADD_3D_EXPERIMENT,
+    ADD3D_EXPERIMENT,
 ]
 
 def load_experiment_config(name: str) -> ExperimentConfig:
@@ -173,5 +173,7 @@ def load_experiment_config(name: str) -> ExperimentConfig:
     matches = [c for c in EXPERIMENT_CONFIGS if c.name == name]
     if len(matches) == 1:
         return matches[0]
+    elif len(matches) > 1:
+        raise ValueError(f"Duplicate experiments named '{name}' found")
     else:
-        raise ValueError(f"Experiment config {name} not found")
+        raise ValueError(f"Experiment config '{name}' not found")

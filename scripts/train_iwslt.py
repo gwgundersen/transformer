@@ -11,13 +11,13 @@ import numpy as np
 from flax import nnx
 
 from transformer import checkpoints as cp
-from transformer.batches import get_batches, get_bucketed_batches
-from transformer.config import load_experiment_config
+from transformer.batches import get_bucketed_batches
+from transformer.config import IWSLT_EXPERIMENT
 from transformer.decode import greedy_decode
 from transformer.inputs import build_model, build_optimizer, load_data
 from transformer.metrics import log_metrics
 from transformer.model import make_src_mask, make_tgt_mask
-from transformer.tokenizer import get_print_sentence
+from transformer.tokenizer import get_print_seq
 from transformer.train import train_step
 
 # --------------------------------------------------------------------------------------------------
@@ -27,13 +27,12 @@ if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment", type=str, default="iwslt")
     parser.add_argument("--resume", action="store_true", help="Resume from latest checkpoint")
     args = parser.parse_args()
 
     # Load the experiment config and then model and optimizer.
-    cfg = load_experiment_config(args.experiment)
-    data = load_data(cfg=cfg.data)
+    cfg = IWSLT_EXPERIMENT
+    data = load_data(cfg=cfg.data, decoder_only=False)
     model = build_model(cfg=cfg, vocabs=data.vocabs)
     optimizer = build_optimizer(cfg=cfg.train, model=model)
 
@@ -54,7 +53,7 @@ if __name__ == "__main__":
         step = 0
         epoch_start = 0
 
-    print_sentence = get_print_sentence(data.vocabs["tgt"])
+    print_seq = get_print_seq(data.vocabs["tgt"])
 
     losses = []
     for epoch in range(epoch_start, cfg.train.n_epochs):
@@ -62,21 +61,12 @@ if __name__ == "__main__":
         rng = np.random.default_rng([cfg.train.seed, epoch])
 
         # Bucket and shuffle batches
-        if data.train.buckets:
-            batches = get_bucketed_batches(
-                data.train.src,
-                data.train.tgt,
-                buckets=data.train.buckets,
-                token_budget=cfg.data.token_budget,
-                rng=rng,
-            )
-        else:
-            batches = get_batches(
-                data.train.src,
-                data.train.tgt,
-                batch_size=cfg.train.batch_size,
-                rng=rng,
-            )
+        batches = get_bucketed_batches(
+            {"src": data.train.src, "tgt": data.train.tgt},
+            buckets=data.train.buckets,
+            token_budget=cfg.data.token_budget,
+            rng=rng,
+        )
 
         losses_epoch = []
         for batch in batches:
@@ -100,8 +90,8 @@ if __name__ == "__main__":
                 src_mask=src_mask[:1],
                 max_length=cfg.data.max_length,
             )
-            print_sentence(y_true)
-            print_sentence(y_hat)
+            print_seq(y_true)
+            print_seq(y_hat)
 
         if epoch % cfg.train.checkpoint_freq == 0:
             # Each checkpoint is ~1GB, so overwrite previous checkpoint

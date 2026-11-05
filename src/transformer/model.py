@@ -356,6 +356,9 @@ class DecoderOnlyTransformer(nnx.Module):
         """
         Decoder-only forward pass.
         """
+        return self.decode(x, mask)
+
+    def decode(self, x, mask):
         x = self.embed(x)
         for layer in self.layers:
             x = layer(x, mask)

@@ -11,13 +11,16 @@ macbook locally
 [x] JIT train_step
 [x] checkpoints
 [x] MLX
-[ ] Do full IWSLT training run on Colab
-look at attention layers
+[x] Do full IWSLT training run on Colab
+[ ] Generalize to addition
+[ ] Implement greedy generate
+[ ] In train_iwslt, print greedy_decode on validation set
+[ ] look at attention layers
 
 
 collab notebook
 ---------------
-full long training run
+full training run on original base transformer?
 evaluations
 
 

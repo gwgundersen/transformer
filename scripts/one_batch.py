@@ -8,11 +8,11 @@ import jax
 import numpy as np
 
 from transformer.batches import get_batches
-from transformer.config import ONE_BATCH_EXPERIMENT as cfg
+from transformer.config import ONE_BATCH_EXPERIMENT, DecoderOnlyConfig
 from transformer.decode import greedy_decode
 from transformer.inputs import build_model, build_optimizer, load_data
 from transformer.model import make_src_mask, make_tgt_mask
-from transformer.tokenizer import get_print_sentence
+from transformer.tokenizer import get_print_seq
 from transformer.train import train_step
 
 # --------------------------------------------------------------------------------------------------
@@ -24,7 +24,8 @@ N_STEPS = 200
 if __name__ == "__main__":
     print(f"JAX devices: {jax.devices()}")
 
-    data = load_data(cfg=cfg.data)
+    cfg = ONE_BATCH_EXPERIMENT
+    data = load_data(cfg=cfg.data, decoder_only=isinstance(cfg.model, DecoderOnlyConfig))
     model = build_model(cfg=cfg, vocabs=data.vocabs)
     optimizer = build_optimizer(cfg=cfg.train, model=model)
 
@@ -43,7 +44,7 @@ if __name__ == "__main__":
     y_true = batch["tgt"][0][:-1]
 
     # Print sentences in target language (English for IWSLT)
-    print_sentence = get_print_sentence(data.vocabs["tgt"])
+    print_seq = get_print_seq(data.vocabs["tgt"])
 
     losses = []
     for step in range(N_STEPS):
@@ -72,5 +73,5 @@ if __name__ == "__main__":
                 src_mask=src_mask[:1],
                 max_length=cfg.data.max_length
             )
-            print_sentence(y_true)
-            print_sentence(y_hat)
+            print_seq(y_true)
+            print_seq(y_hat)
