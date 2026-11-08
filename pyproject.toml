@@ -19,6 +19,7 @@ dependencies = [
     "numpy>=2.5.4",
     "optax>=0.2.8",
     "orbax-checkpoint>=0.12.8",
+    "seaborn>=0.13.2",
     "spacy>=3.8.16",
 ]
 

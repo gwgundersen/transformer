@@ -60,14 +60,12 @@ def greedy_generate(
     model: DecoderOnlyTransformer,
     seq: jnp.ndarray,
     is_tgt: jnp.ndarray,
-    vocab: dict[int, str],
 ) -> jnp.ndarray:
     """
     """
     # FIXME: This only works for batch_size == 1
 
     model.eval()
-    print_seq = get_print_seq(vocab)
 
     # `seq` is the full sequence:
     #     <s> 1 2 3 + 4 5 6 = 5 7 9 </s>
@@ -85,36 +83,11 @@ def greedy_generate(
         # logits is shape (1, seq_len, vocab_size)
         logits = model.decode(src_working, make_tgt_mask(src_working))
         # pick the max logit, i.e. the next word
-        next_id = jnp.argmax(logits[0, -1, :])
+        next_id = jnp.argmax(logits[0, i - 1, :])
         # add next word
         src_working[:, i] = next_id
-
-        # debugging
-        # print_seq(src_working)
 
         if next_id == EOS_ID:
             break
 
     return src_working
-
-
-"""
-  def _forward(model, seq):
-      return model(seq, make_tgt_mask(seq))
-
-
-  def greedy_generate(model: DecoderOnlyTransformer, prompts: np.ndarray) -> np.ndarray:
-      model.eval()
-      seq = prompts.copy()
-      rows = np.arange(len(seq))
-      lengths = (seq != PAD_ID).sum(axis=1)
-      done = lengths >= seq.shape[1]
-      while not done.all():
-          logits = _forward(model, seq)
-          next_ids = np.asarray(logits[rows, lengths - 1].argmax(-1))
-          active = ~done
-          seq[rows[active], lengths[active]] = next_ids[active]
-          lengths[active] += 1
-          done |= (next_ids == EOS_ID) | (lengths >= seq.shape[1])
-      return seq
-"""

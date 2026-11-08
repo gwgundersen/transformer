@@ -72,24 +72,25 @@ if __name__ == "__main__":
             losses.append(loss)
             losses_epoch.append(loss)
             step +=1
-            if step % 100 == 0:
+
+            if step % 250 == 0:
                 print(f"{step}\t{float(loss):.4f}")
                 y_true = batch["seq"][:1, :]
                 y_hat = greedy_generate(
                     model,
                     seq=batch["seq"][:1, :],
-                    is_tgt=batch["is_tgt"][:1, :],
-                    vocab=data.vocabs["tgt"]
+                    is_tgt=batch["is_tgt"][:1, :]
                 )
                 print_seq(y_true)
                 print_seq(y_hat)
 
         if epoch % cfg.train.metrics_freq == 0:
-            print(f"{epoch}\t{np.mean(losses_epoch):.4f}")
-            log_metrics(cfg.name, step, loss)
+            print(f"{epoch=}\t{np.mean(losses_epoch):.4f}")
+            log_metrics(cfg.name, step, loss, mode="w")
 
         if epoch % cfg.train.checkpoint_freq == 0:
             # Each checkpoint is ~1GB, so overwrite previous checkpoint
+            print(f"{epoch=}\tsaving checkpoint")
             cp.save_checkpoint(
                 name=cfg.name,
                 model=model,

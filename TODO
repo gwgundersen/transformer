@@ -12,8 +12,8 @@ macbook locally
 [x] checkpoints
 [x] MLX
 [x] Do full IWSLT training run on Colab
-[ ] Generalize to addition
-[ ] Implement greedy generate
+[x] Generalize to addition
+[x] Implement greedy generate
 [ ] In train_iwslt, print greedy_decode on validation set
 [ ] look at attention layers
 

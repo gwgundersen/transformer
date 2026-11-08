@@ -30,6 +30,18 @@ def train_step(model: Model, optimizer: nnx.Optimizer, batch: dict[str, ArrayLik
     return loss
 
 
+# We use flax's `sow()` to capture the attention weights (intermediate values). But we want to
+# ignore this during training. So I think we can wrap `compute_loss` in `nnx.capture`, and since
+# no matching type will be found, it should be a no-op. The docs:
+#
+# https://flax.readthedocs.io/en/latest/guides/extracting_intermediates.html
+#
+# "If no matching type is found, sow silently returns False without logging the value."
+#
+# In analysis, we can call `forward` on the model with `@nnx.capture(nnx.Intermediate, ...) to grab
+# the attention weights.
+#
+@nnx.capture
 def compute_loss(model: Model, batch: dict[str, ArrayLike]) -> tuple[Array, Array]:
     """
     Wrapper loss function for both encoder-decoders and decoder-only models.

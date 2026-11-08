@@ -14,7 +14,7 @@ def attention(
     key: jnp.array,
     value: jnp.array,
     mask: jnp.array
-) -> jnp.array:
+) -> tuple[jnp.array, jnp.array]:
     """
     FIXME: Clean up this docstring.
 
@@ -42,11 +42,14 @@ def attention(
     # 1) padding
     # 2) causlity
     scores = jnp.where(mask, scores, -jnp.inf)
+    
+    # These are the attention weights, which are commonly visualized
+    weights = nnx.softmax(scores)
 
     # qk_scaled has shape (batch, head, seq, seq)
     # value has shape (batch, head, seq, d_k)
     # output has shape (batch, head, seq, d_k)
-    return jnp.matmul(nnx.softmax(scores), value)
+    return jnp.matmul(weights, value), weights
 
 
 def make_src_mask(src):
@@ -54,6 +57,7 @@ def make_src_mask(src):
     Create source language mask, which simply ignores padding.
     """
     # Attention has shape (B, H, Q, K); add dimensions so that src mask works.
+
     return (src != PAD_ID)[:, None, None, :]
 
 
@@ -124,7 +128,8 @@ class MultiheadAttention(nnx.Module):
         # One could argue that this operation here is one of a few reasons transformers are so
         # successful. The operations are embarrassingly parallel.
         #
-        x = attention(query, key, value, mask)
+        x, w = attention(query, key, value, mask)
+        self.sow(nnx.Intermediate, "attn_weights", w)
 
         # This effectively concatenates the head outputs. First put back dimensions, then reshape
         # (B, H, S, Dh) -> (B, S, H, Dh)
