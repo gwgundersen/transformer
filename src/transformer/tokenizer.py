@@ -9,9 +9,11 @@ from transformer.vocab import BOS_ID, EOS_ID, PAD_ID, UNK_ID
 
 # --------------------------------------------------------------------------------------------------
 
+_DE = German().tokenizer
+_EN = English().tokenizer
 TOKENIZERS = {
-    "de": lambda s: [t.text for t in German().tokenizer(t)],
-    "en": lambda s: [t.text for t in English().tokenizer(t)],
+    "de": lambda t: [t.text for t in _DE(t)],
+    "en": lambda t: [t.text for t in _EN(t)],
     "char": list
 }
 
