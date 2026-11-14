@@ -180,12 +180,21 @@ def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Mod
 
 
 # FIXME: Allow a richer config, e.g. with learning rate scheduling.
-def build_optimizer(cfg: TrainConfig, model: Model) -> nnx.Optimizer:
+def build_optimizer(cfg: TrainConfig, data: Data, model: Model) -> nnx.Optimizer:
     """
-    Build optimizer.
+    Build optimizer. With weight_decay=0, AdamW is equivalent to Adam.
     """
+    n_steps = cfg.n_epochs * (len(data.train.seq) // cfg.batch_size)
+    if cfg.lr_schedule == "cosine":
+        learning_rate = optax.cosine_decay_schedule(
+            init_value=cfg.learning_rate,
+            decay_steps=n_steps,
+            alpha=0.0,  # final LR fraction
+        )
+    else:
+        learning_rate = cfg.learning_rate
     return nnx.Optimizer(
         model,
-        optax.adam(cfg.learning_rate),
+        optax.adamw(learning_rate=learning_rate, weight_decay=cfg.weight_decay),
         wrt=nnx.Param,
     )
