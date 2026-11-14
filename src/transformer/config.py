@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 # --------------------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -40,6 +41,8 @@ class TrainConfig:
     n_epochs: int
     metrics_freq: int
     checkpoint_freq: int
+    weight_decay: float = 0.0
+    lr_schedule: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,20 @@ class ExperimentConfig:
 
 # --------------------------------------------------------------------------------------------------
 
+ADD3D_DATA = [
+    DatasetConfig(
+        dataset=f"add3d{suffix}",
+        src_vocab="add",
+        tgt_vocab="add",
+        src_tokenizer="char",
+        tgt_tokenizer="char",
+        max_length=14,  # [BOS]999+999=1998[EOS]
+        bucket_boundaries=None,
+        token_budget=4096
+    )
+    for suffix in ("", "-zpad", "-oversample", "-zpad-oversample")
+]
+
 IWSLT_DATA = DatasetConfig(
     dataset="iwslt2017-de-en",
     src_vocab="de",
@@ -64,16 +81,17 @@ IWSLT_DATA = DatasetConfig(
     token_budget=4096
 )
 
-ADD3D_DATA = DatasetConfig(
-    dataset="add-3d",
-    src_vocab="add",
-    tgt_vocab="add",
+TINY_STORIES_DATA = DatasetConfig(
+    dataset="tiny-stories",
+    src_vocab="tiny-stories",
+    tgt_vocab="tiny-stories",
     src_tokenizer="char",
     tgt_tokenizer="char",
-    max_length=14,  # [BOS]999+999=1998[EOS]
+    max_length=512,
     bucket_boundaries=None,
     token_budget=4096
 )
+
 
 # --------------------------------------------------------------------------------------------------
 
@@ -107,6 +125,16 @@ TRANSFORMER_DECODER_SMALL = DecoderOnlyConfig(
     dropout_rate=0.2
 )
 
+TRANSFORMER_DECODER_TINY = DecoderOnlyConfig(
+    model_dim=126,
+    ff_dim=512,
+    n_heads=6,
+    n_modules=1,
+    # Dropout encourages the model to distribute the representations, while I want interpretable
+    # attention heads.
+    dropout_rate=0
+)
+
 # --------------------------------------------------------------------------------------------------
 
 ONE_BATCH_EXPERIMENT = ExperimentConfig(
@@ -126,7 +154,8 @@ ONE_BATCH_EXPERIMENT = ExperimentConfig(
         batch_size=128,
         n_epochs=100,
         metrics_freq=1,
-        checkpoint_freq=1
+        checkpoint_freq=1,
+        weight_decay=0.0
     )
 )
 
@@ -141,30 +170,40 @@ IWSLT_EXPERIMENT = ExperimentConfig(
         batch_size=128,
         n_epochs=100,
         metrics_freq=1,
-        checkpoint_freq=1
+        checkpoint_freq=1,
+        weight_decay=0.0
     )
 )
 
-ADD3D_EXPERIMENT = ExperimentConfig(
-    name="add-3d",
-    description="Train ~10M transformer to do up-to-3-digit addition",
-    data=ADD3D_DATA,
-    model=TRANSFORMER_DECODER_SMALL,
-    train=TrainConfig(
-        seed=0,
-        learning_rate=1e-4,
-        batch_size=128,
-        n_epochs=100,
-        metrics_freq=1,
-        checkpoint_freq=1
+ADD3D_EXPERIMENTS = [
+    ExperimentConfig(
+        name=cfg.dataset,
+        description="Train tiny transformer to do up-to-3-digit addition",
+        data=cfg,
+        model=TRANSFORMER_DECODER_TINY,
+        train=TrainConfig(
+            seed=0,
+            learning_rate=2e-3,
+            batch_size=1024,
+            n_epochs=100,
+            metrics_freq=1,
+            checkpoint_freq=1,
+            weight_decay=0.1,
+            lr_schedule="cosine"
+        )
     )
-)
-
-EXPERIMENT_CONFIGS = [
-    ONE_BATCH_EXPERIMENT,
-    IWSLT_EXPERIMENT,
-    ADD3D_EXPERIMENT,
+    for cfg in ADD3D_DATA
 ]
+
+
+EXPERIMENT_CONFIGS = (
+    [
+        ONE_BATCH_EXPERIMENT,
+        IWSLT_EXPERIMENT,
+    ]
+    +
+    ADD3D_EXPERIMENTS
+)
 
 def load_experiment_config(name: str) -> ExperimentConfig:
     """
