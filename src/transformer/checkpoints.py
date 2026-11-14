@@ -30,7 +30,7 @@ def save_checkpoint(
         path.rename(backup)
 
     state = {
-        "model": nnx.state(model),
+        "model": nnx.state(model, nnx.Not(nnx.Intermediate)),
         "optimizer": nnx.state(optimizer),
         "step": jnp.asarray(step),
         "epoch": jnp.asarray(epoch)
