@@ -87,6 +87,9 @@ class MultiheadAttention(nnx.Module):
         """
         # FIXME: This surprises me. I thought multi-head attention meant attention was repeated over
         # same input window
+        if model_dim % n_heads != 0:
+            raise ValueError(f"{model_dim=} should be divisible by {n_heads=}")
+
         self.d_k = model_dim // n_heads
         self.n_heads = n_heads
         self.model_dim = model_dim
