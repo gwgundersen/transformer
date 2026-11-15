@@ -58,8 +58,9 @@ def _encoder_decoder_loss(
     tgt: ArrayLike
 ) -> tuple[Array, Array]:
     """
+    Loss function for an encoder-decoder transformer.
     """
-    # FIXME: Explain teacher forcing.
+    # Teacher forcing.
     tgt_input = tgt[:, :-1]
     tgt_output = tgt[:, 1:]
 
@@ -90,6 +91,7 @@ def _decoder_only_loss(
     is_tgt: ArrayLike
 ) -> tuple[Array, Array]:
     """
+    Loss function for a decoder-only (GPT-style) transformer.
     """
     seq_input = seq[:, :-1]
     seq_output = seq[:, 1:]

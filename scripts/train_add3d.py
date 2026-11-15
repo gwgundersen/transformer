@@ -30,11 +30,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--suffix",
-        default="-zpad-oversample",
+        default="",
         type=str,
-        choices=["-zpad", "-zpad-oversample"]
+        choices=["", "-zpad", "-zpad-oversample"]
     )
     args = parser.parse_args()
+    print(f"{args.suffix=}")
 
     # Remove the log file, since we re-create it and then append to it
     try:
@@ -44,6 +45,8 @@ if __name__ == "__main__":
 
     # Load the experiment config and then model and optimizer.
     cfg = load_experiment_config(f"add3d{args.suffix}")
+    print(cfg)
+
     data = load_data(cfg=cfg.data, decoder_only=True)
     model = build_model(cfg=cfg, vocabs=data.vocabs)
     optimizer = build_optimizer(cfg=cfg.train, data=data, model=model)
@@ -98,7 +101,7 @@ if __name__ == "__main__":
             # Each checkpoint is ~1GB, so overwrite previous checkpoint
             print(f"{epoch=}\tsaving checkpoint")
             cp.save_checkpoint(
-                name=cfg.name,
+                name=f"{cfg.name}-{epoch}",
                 model=model,
                 optimizer=optimizer,
                 step=step,

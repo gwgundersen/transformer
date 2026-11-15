@@ -179,10 +179,10 @@ def build_model(cfg: ExperimentConfig, vocabs: dict[str, dict[str, int]]) -> Mod
         raise ValueError(f"Unknown config type {type(cfg.model)}")
 
 
-# FIXME: Allow a richer config, e.g. with learning rate scheduling.
+# FIXME: This feels poorly abstracted, but I haven't thought of a cleaner way yet.
 def build_optimizer(cfg: TrainConfig, data: Data, model: Model) -> nnx.Optimizer:
     """
-    Build optimizer. With weight_decay=0, AdamW is equivalent to Adam.
+    Build optimizer.
     """
     n_steps = cfg.n_epochs * (len(data.train.seq) // cfg.batch_size)
     if cfg.lr_schedule == "cosine":
@@ -193,6 +193,8 @@ def build_optimizer(cfg: TrainConfig, data: Data, model: Model) -> nnx.Optimizer
         )
     else:
         learning_rate = cfg.learning_rate
+
+    # With weight_decay=0, AdamW is equivalent to Adam.
     return nnx.Optimizer(
         model,
         optax.adamw(learning_rate=learning_rate, weight_decay=cfg.weight_decay),

@@ -17,6 +17,8 @@ def greedy_decode(
     max_length: int
 ) -> jnp.ndarray:
     """
+    Encode a source sequence and then greedily (argmax on the logits) decode into a target
+    sequence.
     """
     model.eval()
     encoder_output = model.encode(src, src_mask)
@@ -25,22 +27,13 @@ def greedy_decode(
     tgt = jnp.array([[BOS_ID]])
 
     for step in range(max_length - 1):
-
         tgt_mask = make_tgt_mask(tgt)
-        
-        decoder_output = model.decode(
-            encoder_output,
-            src_mask,
-            tgt,
-            tgt_mask
-        )
-
+        decoder_output = model.decode(encoder_output, src_mask, tgt, tgt_mask)
         logits = model.output_projection(decoder_output)
 
         # logits has shape (1, current_seq_len, vocab_size); we want to take best word, i.e. argmax
-        # over vocab size
+        # over vocab size. The argmax here is what makes this function "greedy".
         next_id = jnp.argmax(logits[0, -1, :])
-
         tgt = jnp.concatenate([tgt, next_id[None, None]], axis=1)
 
         if next_id == EOS_ID:
@@ -49,22 +42,15 @@ def greedy_decode(
     return tgt.squeeze()
 
 
-# FIXME: Better name?
-"""
-<s> 1 2 3 + 4 5 6 =         --> 5
-<s> 1 2 3 + 4 5 6 = 5       --> 7
-<s> 1 2 3 + 4 5 6 = 5 7     --> 9
-<s> 1 2 3 + 4 5 6 = 5 7 9   --> </s>
-"""
+# FIXME: This only works for batch_size == 1
 def greedy_generate(
     model: DecoderOnlyTransformer,
     seq: jnp.ndarray,
     is_tgt: jnp.ndarray,
 ) -> jnp.ndarray:
     """
+    Given a sequence so far ('src'), greedily generate the remainder ('tgt').
     """
-    # FIXME: This only works for batch_size == 1
-
     model.eval()
 
     # `seq` is the full sequence:

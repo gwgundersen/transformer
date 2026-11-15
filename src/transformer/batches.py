@@ -4,6 +4,7 @@ import numpy as np
 
 from transformer.tokenizer import PAD_ID
 
+
 # --------------------------------------------------------------------------------------------------
 
 def get_batches(
@@ -66,6 +67,8 @@ def assign_buckets(
     bucket_boundaries: tuple
 ) -> np.ndarray:
     """
+    Assign data to buckets based on sequence length. This can speed up training because we can have
+    very efficiently padded batches.
     """
     n = len(src_data)
     assert n == len(tgt_data)
