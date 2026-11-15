@@ -117,7 +117,6 @@ TRANSFORMER_BIG = EncoderDecoderConfig(
 # heads, and an embedding dimension of 384, resulting in approximately 10.6 million parameters.
 #
 TRANSFORMER_DECODER_SMALL = DecoderOnlyConfig(
-    # FIXME: Check model_dim and ff_dim. My understanding is that ff_dim is fixed by NanoGPT
     model_dim=384,
     ff_dim=1536,
     n_heads=6,
@@ -134,6 +133,7 @@ TRANSFORMER_DECODER_TINY = DecoderOnlyConfig(
     # attention heads.
     dropout_rate=0
 )
+
 
 # --------------------------------------------------------------------------------------------------
 
@@ -175,26 +175,57 @@ IWSLT_EXPERIMENT = ExperimentConfig(
     )
 )
 
+ADD3D_TRAIN_KWARGS = dict(
+    seed=0,
+    learning_rate=2e-3,
+    batch_size=1024,
+    n_epochs=50,
+    metrics_freq=1,
+    checkpoint_freq=10,
+)
+
+ADD3D_DATA_KWARGS = dict(
+    src_vocab="add",
+    tgt_vocab="add",
+    src_tokenizer="char",
+    tgt_tokenizer="char",
+    max_length=14,
+    bucket_boundaries=None,
+    token_budget=4096
+)
+
+ADD3D_DESCRIPTION = "Train tiny transformer to do up-to-3-digit addition",
+
 ADD3D_EXPERIMENTS = [
     ExperimentConfig(
-        name=cfg.dataset,
-        description="Train tiny transformer to do up-to-3-digit addition",
-        data=cfg,
+        name="add3d",
+        description=ADD3D_DESCRIPTION,
+        data=DatasetConfig(dataset=f"add3d", **ADD3D_DATA_KWARGS),
         model=TRANSFORMER_DECODER_TINY,
-        train=TrainConfig(
-            seed=0,
-            learning_rate=2e-3,
-            batch_size=1024,
-            n_epochs=100,
-            metrics_freq=1,
-            checkpoint_freq=1,
-            weight_decay=0.1,
-            lr_schedule="cosine"
-        )
+        train=TrainConfig(**ADD3D_TRAIN_KWARGS)
+    ),
+    ExperimentConfig(
+        name="add3d-zpad",
+        description=ADD3D_DESCRIPTION,
+        data=DatasetConfig(dataset=f"add3d-zpad", **ADD3D_DATA_KWARGS),
+        model=TRANSFORMER_DECODER_TINY,
+        train=TrainConfig(**ADD3D_TRAIN_KWARGS)
+    ),
+    ExperimentConfig(
+        name="add3d-zpad-oversample",
+        description=ADD3D_DESCRIPTION,
+        data=DatasetConfig(dataset=f"add3d-zpad-oversample", **ADD3D_DATA_KWARGS),
+        model=TRANSFORMER_DECODER_TINY,
+        train=TrainConfig(**ADD3D_TRAIN_KWARGS)
+    ),
+    ExperimentConfig(
+        name="add3d-zpad-oversample-lr",
+        description=ADD3D_DESCRIPTION,
+        data=DatasetConfig(dataset=f"add3d-zpad-oversample", **ADD3D_DATA_KWARGS),
+        model=TRANSFORMER_DECODER_TINY,
+        train=TrainConfig(**ADD3D_TRAIN_KWARGS, lr_schedule="cosine")
     )
-    for cfg in ADD3D_DATA
 ]
-
 
 EXPERIMENT_CONFIGS = (
     [
@@ -204,6 +235,9 @@ EXPERIMENT_CONFIGS = (
     +
     ADD3D_EXPERIMENTS
 )
+
+
+# --------------------------------------------------------------------------------------------------
 
 def load_experiment_config(name: str) -> ExperimentConfig:
     """
