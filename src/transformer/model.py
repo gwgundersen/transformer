@@ -1,4 +1,6 @@
+from jax import Array
 import jax.numpy as jnp
+from jax.typing import ArrayLike
 import numpy as np
 from flax import nnx
 
@@ -10,11 +12,11 @@ MAX_LEN = 5000
 
 
 def attention(
-    query: jnp.array,
-    key: jnp.array,
-    value: jnp.array,
-    mask: jnp.array
-) -> tuple[jnp.array, jnp.array]:
+    query: ArrayLike,
+    key: ArrayLike,
+    value: ArrayLike,
+    mask: ArrayLike,
+) -> tuple[Array, Array]:
     """
     FIXME: Clean up this docstring.
 
@@ -52,7 +54,7 @@ def attention(
     return jnp.matmul(weights, value), weights
 
 
-def make_src_mask(src):
+def make_src_mask(src: ArrayLike) -> Array:
     """
     Create source language mask, which simply ignores padding.
     """
@@ -61,7 +63,7 @@ def make_src_mask(src):
     return (src != PAD_ID)[:, None, None, :]
 
 
-def make_tgt_mask(tgt_input: np.ndarray | jnp.ndarray) -> np.ndarray | jnp.ndarray:
+def make_tgt_mask(tgt_input: ArrayLike) -> Array:
     """
     Create target language mask, which ignores paddig and enforces causality.
     """
